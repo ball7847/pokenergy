@@ -63,7 +63,7 @@ button{color:inherit}
 
 .portal-layout{
   height:100%;min-height:0;
-  display:grid;grid-template-columns:minmax(520px,1.35fr) minmax(220px,.58fr) minmax(350px,.88fr);gap:12px;
+  display:grid;grid-template-columns:minmax(420px,1fr) minmax(220px,.54fr) minmax(420px,1fr);gap:12px;
 }
 .portal-column,.content-page{
   background:rgba(17,24,34,.94);border:1px solid #273246;border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.2);
@@ -137,11 +137,11 @@ button{color:inherit}
 
 .modal-backdrop[hidden]{display:none!important}
 .modal-backdrop{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:20px;background:rgba(3,6,10,.72);backdrop-filter:blur(7px)}
-.dex-modal{position:relative;width:min(620px,100%);max-height:min(780px,92vh);overflow:auto;border:1px solid #344158;border-radius:17px;background:#111824;box-shadow:0 28px 80px rgba(0,0,0,.55);padding:22px}.modal-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:1px solid #303c50;border-radius:9px;background:#192231;color:#aeb8c7;font-size:22px;cursor:pointer}.modal-pokemon-head{display:flex;align-items:center;gap:16px;padding-bottom:17px;border-bottom:1px solid #283348}.modal-pokemon-head h2{font-size:25px;margin:2px 0 9px}.dex-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.dex-detail-grid>div{border:1px solid #273347;border-radius:10px;background:#0c121a;padding:10px}.dex-detail-grid span{display:block;color:#748197;font-size:9px}.dex-detail-grid strong{display:block;font-size:12px;margin-top:5px;line-height:1.45}.ability-box{margin-top:12px;border:1px solid #302c50;border-radius:11px;background:rgba(71,58,140,.12);padding:13px}.ability-box h3{font-size:13px;margin:0 0 8px}.ability-box ul{margin:0;padding-left:17px;color:#c9c5e7;font-size:11px;line-height:1.7}
+.dex-modal{position:relative;width:min(620px,100%);max-height:min(780px,92vh);overflow:auto;border:1px solid #344158;border-radius:17px;background:#111824;box-shadow:0 28px 80px rgba(0,0,0,.55);padding:22px}.modal-close{position:absolute;z-index:5;pointer-events:auto;right:14px;top:12px;width:34px;height:34px;border:1px solid #303c50;border-radius:9px;background:#192231;color:#aeb8c7;font-size:22px;cursor:pointer}.modal-pokemon-head{display:flex;align-items:center;gap:16px;padding-bottom:17px;border-bottom:1px solid #283348}.modal-pokemon-head h2{font-size:25px;margin:2px 0 9px}.dex-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.dex-detail-grid>div{border:1px solid #273347;border-radius:10px;background:#0c121a;padding:10px}.dex-detail-grid span{display:block;color:#748197;font-size:9px}.dex-detail-grid strong{display:block;font-size:12px;margin-top:5px;line-height:1.45}.ability-box{margin-top:12px;border:1px solid #302c50;border-radius:11px;background:rgba(71,58,140,.12);padding:13px}.ability-box h3{font-size:13px;margin:0 0 8px}.ability-box ul{margin:0;padding-left:17px;color:#c9c5e7;font-size:11px;line-height:1.7}
 
 .type-normal{--type-color:#9299a1}.type-fire{--type-color:#e96b4b}.type-water{--type-color:#4f8fe8}.type-electric{--type-color:#e4bd42}.type-grass{--type-color:#64ac58}.type-ice{--type-color:#62bac3}.type-fighting{--type-color:#c55353}.type-poison{--type-color:#9858b6}.type-ground{--type-color:#b98a50}.type-flying{--type-color:#778ed1}.type-psychic{--type-color:#db638b}.type-bug{--type-color:#8fa33f}.type-rock{--type-color:#a39157}.type-ghost{--type-color:#6665a9}.type-dragon{--type-color:#6558ca}.type-dark{--type-color:#5d5862}.type-steel{--type-color:#6f91a3}.type-fairy{--type-color:#d477b0}
 
-@media(max-width:1180px){
+@media(max-width:1080px){
   .tab-panel[data-panel="portal"]{overflow:auto}
   .portal-layout{height:auto;min-height:100%;grid-template-columns:minmax(360px,1.2fr) minmax(250px,.8fr)}
   .portal-input-list{grid-template-columns:1fr}

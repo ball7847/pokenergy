@@ -2,8 +2,8 @@ import { INTRO_LOG_LINES } from '../data/story.js';
 import { attachJosa } from '../utils/korean.js';
 
 export class Game {
-  constructor({ store, productionSystem, portalSystem, unlockSystem, saveSystem, config, createInitialState }) {
-    Object.assign(this, { store, productionSystem, portalSystem, unlockSystem, saveSystem, config, createInitialState });
+  constructor({ store, productionSystem, portalSystem, pokemonSystem, unlockSystem, saveSystem, config, createInitialState }) {
+    Object.assign(this, { store, productionSystem, portalSystem, pokemonSystem, unlockSystem, saveSystem, config, createInitialState });
     this.timer = null;
     this.autosaveTimer = null;
     this.introTimer = null;
@@ -32,10 +32,18 @@ export class Game {
 
   tick(now = Date.now()) {
     const state = this.store.getState();
-    const elapsed = Math.min(this.config.maxTickSeconds, Math.max(0, (now - state.runtime.lastTickAt) / 1000));
     state.runtime.lastTickAt = now;
-    const production = this.productionSystem.getProduction(state);
-    for (const [type, rate] of Object.entries(production)) state.resources.energy[type] += rate * elapsed;
+    state.runtime.lastProductionAt ??= now;
+
+    // 화면/쿨타임은 빠르게 갱신하되, 에너지 생산은 정확히 1초 단위로만 처리한다.
+    const elapsedWholeSeconds = Math.min(
+      Math.floor(this.config.maxTickSeconds),
+      Math.floor(Math.max(0, now - state.runtime.lastProductionAt) / 1000),
+    );
+    for (let i = 0; i < elapsedWholeSeconds; i += 1) {
+      this.productionSystem.produceOneSecond(state);
+      state.runtime.lastProductionAt += 1000;
+    }
     this.store.notify();
   }
 
@@ -48,19 +56,19 @@ export class Game {
     this.store.mutate(state => {
       result = this.portalSystem.summon(state);
       if (!result.ok) return;
-
       this.unlockSystem.recalculate(state);
       this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다.`);
-
-      if (result.isNew) {
-        this.addLog('important', `새로운 포켓몬 발견: ${result.pokemon.name}`);
-        for (const effect of result.pokemon.effects ?? []) {
-          this.addLog('important', `새로운 능력 해금: ${effect.label ?? effect.type}`);
-        }
-      }
+      if (result.isNew) this.logNewPokemonEffects(result.pokemon);
     }, { notify: false });
     this.store.notify();
     return result;
+  }
+
+  logNewPokemonEffects(pokemon) {
+    this.addLog('important', `새로운 포켓몬 발견: ${pokemon.name}`);
+    for (const effect of pokemon.effects ?? []) {
+      this.addLog('important', `새로운 능력 해금: ${effect.label ?? effect.type}`);
+    }
   }
 
   addLog(kind, message, at = Date.now()) {
@@ -72,15 +80,13 @@ export class Game {
     state.records[bucket] = state.records[bucket].slice(-500);
   }
 
-  save() {
-    this.saveSystem.save(this.store.getState());
-    this.store.notify();
-  }
+  save() { this.saveSystem.save(this.store.getState()); this.store.notify(); }
 
   load() {
     const loaded = this.saveSystem.load();
     if (!loaded) return false;
     loaded.runtime.lastTickAt = Date.now();
+    loaded.runtime.lastProductionAt = Date.now();
     this.store.replace(loaded);
     this.productionSystem.invalidate();
     this.unlockSystem.recalculate(loaded);
@@ -102,7 +108,6 @@ export class Game {
   resumeIntro() {
     if (this.introTimer) clearTimeout(this.introTimer);
     this.introTimer = null;
-
     const state = this.store.getState();
     if (state.story?.introComplete) return;
 
@@ -118,9 +123,19 @@ export class Game {
 
       this.addLog('important', INTRO_LOG_LINES[index]);
       current.story.introNextIndex = index + 1;
-      if (current.story.introNextIndex >= INTRO_LOG_LINES.length) current.story.introComplete = true;
-      this.store.notify();
 
+      // 마지막 세계관 문장이 표시된 직후, 최초 메타몽을 실제 게임 상태에 지급한다.
+      if (current.story.introNextIndex >= INTRO_LOG_LINES.length) {
+        current.story.introComplete = true;
+        if (!current.story.dittoGranted) {
+          const acquisition = this.pokemonSystem.acquire(current, 'ditto', { now: Date.now() });
+          current.story.dittoGranted = true;
+          this.unlockSystem.recalculate(current);
+          if (acquisition.isNew) this.logNewPokemonEffects(acquisition.pokemon);
+        }
+      }
+
+      this.store.notify();
       if (!current.story.introComplete) {
         this.introTimer = setTimeout(emitNext, this.config.story.introLineDelayMs);
       } else {

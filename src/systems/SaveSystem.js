@@ -60,6 +60,15 @@ export class SaveSystem {
       migrated.records.important = [...migrated.records.important].reverse();
     }
 
+    // v5부터 새 게임은 메타몽 없이 시작하고, 마지막 도입 기록 직후 메타몽을 지급한다.
+    // 기존 저장은 이미 보유한 메타몽을 다시 지급하지 않도록 표시한다.
+    if (version < 5) {
+      migrated.story ??= { introNextIndex: 0, introComplete: false };
+      migrated.story.dittoGranted = (migrated.pokemon.counts.ditto ?? 0) > 0;
+      migrated.runtime.lastProductionAt = Date.now();
+    }
+    migrated.runtime.lastProductionAt ??= Date.now();
+
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;
   }

@@ -29,6 +29,14 @@ export function createEffectRegistry() {
     ctx.production[effect.energy] *= 1 + effect.value;
   });
 
+  registry.register('second_tick_chance_count_energy', (effect, ctx) => {
+    if (ctx.hook !== 'production:second_tick') return;
+    if (ctx.random() >= effect.chance) return;
+    const count = ctx.state.pokemon.counts[effect.pokemon] ?? 0;
+    if (count <= 0) return;
+    ctx.gains[effect.energy] = (ctx.gains[effect.energy] ?? 0) + count * (effect.value ?? 1);
+  });
+
   registry.register('cooldown_flat', (effect, ctx) => {
     if (ctx.hook !== 'portal:cooldown') return;
     ctx.value -= effect.value;

@@ -17,6 +17,7 @@ export class AppView {
     this.selectedPokemonId = null;
     this.lastSaveNotice = '';
     this.lastStructuralSignature = '';
+    this.lastModalSignature = '';
   }
 
   mount() {
@@ -108,7 +109,7 @@ export class AppView {
       const dexCard = event.target.closest('[data-dex-id]');
       if (dexCard && !dexCard.disabled) {
         this.selectedPokemonId = dexCard.dataset.dexId;
-        this.renderDexModal(this.store.getState());
+        this.renderDexModalIfNeeded(this.store.getState(), true);
         return;
       }
 
@@ -139,8 +140,10 @@ export class AppView {
     const modal = this.root.querySelector('[data-view="dex-modal"]');
     if (modal) {
       modal.hidden = true;
+      modal.style.display = 'none';
       modal.innerHTML = '';
     }
+    this.lastModalSignature = '';
   }
 
   render(state, { force = false } = {}) {
@@ -154,7 +157,7 @@ export class AppView {
     }
 
     this.updateRuntimeValues(state);
-    this.renderDexModal(state);
+    this.renderDexModalIfNeeded(state, force);
   }
 
   structuralSignature(state) {
@@ -457,12 +460,27 @@ export class AppView {
 
           <section class="settings-card danger-card">
             <h2>게임 초기화</h2>
-            <p>모든 포켓몬, 에너지, 도감, 기록을 삭제하고 메타몽 1마리부터 다시 시작합니다.</p>
+            <p>모든 포켓몬, 에너지, 도감, 기록을 삭제하고 세계관 도입부터 다시 시작합니다.</p>
             <button class="settings-button danger" data-action="reset" type="button">모든 진행 상황 초기화</button>
           </section>
         </div>
       </div>
     `;
+  }
+
+  renderDexModalIfNeeded(state, force = false) {
+    const pokemon = this.pokemonData.find(p => p.id === this.selectedPokemonId);
+    const record = pokemon ? state.pokemon.records[pokemon.id] : null;
+    const signature = JSON.stringify({
+      id: this.selectedPokemonId,
+      discovered: pokemon ? Boolean(state.pokemon.discovered[pokemon.id]) : false,
+      count: pokemon ? (state.pokemon.counts[pokemon.id] ?? 0) : 0,
+      maxCount: record?.maxCount ?? 0,
+      discoveredAt: record?.discoveredAt ?? null,
+    });
+    if (!force && signature === this.lastModalSignature) return;
+    this.lastModalSignature = signature;
+    this.renderDexModal(state);
   }
 
   renderDexModal(state) {
@@ -472,6 +490,7 @@ export class AppView {
     const pokemon = this.pokemonData.find(p => p.id === this.selectedPokemonId);
     if (!pokemon || !state.pokemon.discovered[pokemon.id]) {
       modal.hidden = true;
+      modal.style.display = 'none';
       modal.innerHTML = '';
       return;
     }
@@ -482,6 +501,7 @@ export class AppView {
       : '<li>고유 능력 없음</li>';
 
     modal.hidden = false;
+    modal.style.display = 'grid';
     modal.innerHTML = `
       <section class="dex-modal" role="dialog" aria-modal="true" aria-label="${pokemon.name} 정보">
         <button class="modal-close" data-action="close-dex-modal" type="button" aria-label="닫기">×</button>

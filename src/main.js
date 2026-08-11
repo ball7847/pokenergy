@@ -10,6 +10,7 @@ import { createEffectRegistry } from './systems/effectRegistry.js';
 import { EffectSystem } from './systems/EffectSystem.js';
 import { ProductionSystem } from './systems/ProductionSystem.js';
 import { PortalSystem } from './systems/PortalSystem.js';
+import { PokemonSystem } from './systems/PokemonSystem.js';
 import { UnlockSystem } from './systems/UnlockSystem.js';
 import { SaveSystem } from './systems/SaveSystem.js';
 import { AppView } from './ui/AppView.js';
@@ -20,7 +21,8 @@ const store = new GameStore(savedState);
 const conditionSystem = new ConditionSystem(createConditionRegistry(), POKEMON_DATA);
 const effectSystem = new EffectSystem(createEffectRegistry(), POKEMON_DATA);
 const productionSystem = new ProductionSystem({ pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES, effectSystem });
-const portalSystem = new PortalSystem({ conditionSystem, effectSystem, productionSystem, pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES });
+const pokemonSystem = new PokemonSystem({ pokemonData: POKEMON_DATA, productionSystem });
+const portalSystem = new PortalSystem({ conditionSystem, effectSystem, productionSystem, pokemonSystem, pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES });
 const unlockSystem = new UnlockSystem(effectSystem);
 unlockSystem.recalculate(savedState);
 
@@ -30,6 +32,7 @@ const game = new Game({
   portalSystem,
   unlockSystem,
   saveSystem,
+  pokemonSystem,
   config: GAME_CONFIG,
   createInitialState,
 });
@@ -45,7 +48,7 @@ const view = new AppView({
 view.mount();
 game.start();
 
-window.pokenergy = { game, store, systems: { conditionSystem, effectSystem, productionSystem, portalSystem, unlockSystem } };
+window.pokenergy = { game, store, systems: { conditionSystem, effectSystem, productionSystem, portalSystem, pokemonSystem, unlockSystem } };
 
 function safeLoad(system) {
   try {

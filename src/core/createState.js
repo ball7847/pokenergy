@@ -4,20 +4,18 @@ import { GAME_CONFIG } from '../config/gameConfig.js';
 
 export function createInitialState(now = Date.now()) {
   const counts = Object.fromEntries(POKEMON_DATA.map(p => [p.id, 0]));
-  counts.ditto = 1;
 
   const records = Object.fromEntries(POKEMON_DATA.map(p => [p.id, {
     discoveredAt: null,
     maxCount: 0,
   }]));
-  records.ditto = { discoveredAt: now, maxCount: 1 };
 
   return {
     meta: { saveVersion: GAME_CONFIG.saveVersion, createdAt: now, updatedAt: now },
     resources: { energy: Object.fromEntries(ENERGY_TYPES.map(type => [type, 0])) },
     pokemon: {
       counts,
-      discovered: { ditto: true },
+      discovered: {},
       records,
     },
     portal: {
@@ -29,8 +27,12 @@ export function createInitialState(now = Date.now()) {
     story: {
       introNextIndex: 0,
       introComplete: false,
+      dittoGranted: false,
     },
-    runtime: { lastTickAt: now },
+    runtime: {
+      lastTickAt: now,
+      lastProductionAt: now,
+    },
     records: { general: [], important: [] },
     debug: { productionSpeed: 1 },
   };

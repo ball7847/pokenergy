@@ -1,6 +1,6 @@
 export const GAME_CONFIG = Object.freeze({
   saveKey: 'pokenergy_save',
-  saveVersion: 4,
+  saveVersion: 5,
   autosaveMs: 10_000,
   tickMs: 100,
   maxTickSeconds: 2,
@@ -12,7 +12,7 @@ export const GAME_CONFIG = Object.freeze({
   },
 
   story: {
-    introLineDelayMs: 3_000,
+    introLineDelayMs: 1_500,
   },
 
   // 아직 미확정인 기획값은 한 곳에 격리한다.
