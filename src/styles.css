@@ -157,13 +157,34 @@ button{color:inherit}
 
 .settings-toggle{width:max-content;max-width:100%;padding:9px 0}.settings-toggle b{font-size:12px;color:#cbd3df}
 
-/* v1.4: 에너지 직접입력 + 빠른 비율 버튼 */
-.portal-input-row{grid-template-rows:auto auto}
-.portal-input-row .type-dot{grid-row:1}
-.portal-input-row .input-type-name{grid-row:1}
-.portal-input-row input{grid-row:1;-moz-appearance:textfield;appearance:textfield}
+/* v1.5: 에너지 투입 카드 압축 */
+.portal-input-list{margin-top:9px;gap:4px;overflow:hidden;padding-right:0}
+.portal-input-row{
+  grid-template-columns:6px 40px minmax(58px,1fr) 52px;
+  grid-template-rows:26px 20px;
+  column-gap:5px;row-gap:2px;
+  padding:4px 6px;border-radius:8px;
+}
+.portal-input-row .type-dot{grid-row:1 / 3;height:34px;width:5px;align-self:center}
+.portal-input-row .input-type-name{grid-row:1;font-size:11px}
+.portal-input-row input{
+  grid-row:1;height:26px;padding:3px 6px;font-size:11px;
+  -moz-appearance:textfield;appearance:textfield;
+}
 .portal-input-row input::-webkit-outer-spin-button,.portal-input-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.portal-input-row small{grid-row:1}
-.energy-quick-buttons{grid-column:2/-1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:1px}
-.energy-quick-buttons button{border:1px solid #2d394d;border-radius:6px;background:#111a25;color:#9eabbc;padding:4px 3px;font-size:10px;font-weight:700;cursor:pointer}
+.portal-input-row small{grid-row:1;font-size:9px}
+.energy-quick-buttons{
+  grid-column:2/-1;grid-row:2;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:3px;margin-top:0;
+}
+.energy-quick-buttons button{
+  min-width:0;height:20px;border:1px solid #2d394d;border-radius:5px;
+  background:#111a25;color:#9eabbc;padding:0 2px;
+  font-size:8px;line-height:18px;font-weight:700;cursor:pointer;
+}
 .energy-quick-buttons button:hover{border-color:#665bd2;color:#e7e3ff;background:#171d32}
+.portal-input-panel{padding:13px}
+.portal-input-panel .section-heading h1{font-size:18px}
+.portal-input-panel .limit-badge{padding:5px 8px;font-size:10px}
+.portal-input-panel .input-footer{margin-top:7px;padding-top:8px}
