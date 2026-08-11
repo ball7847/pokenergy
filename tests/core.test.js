@@ -348,15 +348,15 @@ test('에너지 100만 이상은 과학적 표기법을 사용한다', () => {
   assert.equal(formatEnergyNumber(12_000_000), '1.2e7');
 });
 
-test('레트라는 꼬렛 10마리 이상 AND 노말에너지 1000 이상일 때만 후보가 된다', () => {
+test('레트라는 꼬렛 10마리 이상 AND 노말에너지 200 이상일 때만 후보가 된다', () => {
   const { conditionSystem } = createSystems();
   const state = createInitialState();
   state.pokemon.counts.rattata = 10;
-  state.portal.input.normal = 999;
+  state.portal.input.normal = 199;
   let ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
   assert.equal(ids.includes('raticate'), false);
 
-  state.portal.input.normal = 1000;
+  state.portal.input.normal = 200;
   ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
   assert.equal(ids.includes('raticate'), true);
 
@@ -407,4 +407,38 @@ test('모든 진행 상황 초기화는 포탈 쿨타임 단계 진행도까지 
   assert.equal(fresh.resources.energy.normal, 0);
   assert.equal(fresh.pokemon.counts.rattata, 0);
   game.stop();
+});
+
+import { pokemonConditionsToText } from '../src/utils/conditionText.js';
+
+test('꼬렛은 노말에너지 19 이상에서 후보가 된다', () => {
+  const state = createInitialState();
+  const { conditionSystem } = createSystems();
+  state.portal.input.normal = 18;
+  let ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('rattata'), false);
+  state.portal.input.normal = 19;
+  ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('rattata'), true);
+});
+
+test('레트라는 꼬렛 10마리 이상 + 노말에너지 200 이상을 모두 만족해야 후보가 된다', () => {
+  const state = createInitialState();
+  const { conditionSystem } = createSystems();
+  state.pokemon.counts.rattata = 10;
+  state.portal.input.normal = 199;
+  let ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('raticate'), false);
+  state.portal.input.normal = 200;
+  ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('raticate'), true);
+});
+
+test('도감 등장 조건 문구는 AND를 +, OR를 OR로 표시한다', () => {
+  const raticate = POKEMON_DATA.find(p => p.id === 'raticate');
+  const pikachu = POKEMON_DATA.find(p => p.id === 'pikachu');
+  const bulbasaur = POKEMON_DATA.find(p => p.id === 'bulbasaur');
+  assert.equal(pokemonConditionsToText(raticate, POKEMON_DATA), '꼬렛 10마리 이상 + 노말에너지 200 이상');
+  assert.equal(pokemonConditionsToText(pikachu, POKEMON_DATA), '노말에너지 정확히 25 OR 전기에너지 100 이상');
+  assert.equal(pokemonConditionsToText(bulbasaur, POKEMON_DATA), '노말에너지 1000 이상 OR 풀에너지 100 이상');
 });

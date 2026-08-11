@@ -8,13 +8,13 @@ export const POKEMON_DATA = [
     { type: 'energy_min', energy: 'normal', value: 10 },
   ]},
   { id: 'rattata', dex: 19, name: '꼬렛', types: ['normal'], conditions: [
-    { type: 'energy_min', energy: 'normal', value: 50 },
+    { type: 'energy_min', energy: 'normal', value: 19 },
   ], effects: [
     { type: 'second_tick_chance_count_energy', chance: 0.01, pokemon: 'rattata', energy: 'normal', value: 10, abilityName: '꼬리흔들기', label: '[꼬리흔들기] 1% 확률로 꼬렛 수의 10배만큼 노말에너지를 추가 획득한다.' },
   ]},
   { id: 'raticate', dex: 20, name: '레트라', types: ['normal'], conditions: [
     { type: 'pokemon_count_min', pokemon: 'rattata', value: 10 },
-    { type: 'energy_min', energy: 'normal', value: 1000 },
+    { type: 'energy_min', energy: 'normal', value: 200 },
   ], effects: [
     { type: 'second_tick_chance_production_percent', chance: 0.01, energy: 'normal', value: 0.5, pokemon: 'raticate', abilityName: '분노의 앞니', label: '[분노의 앞니] 1% 확률로 초당 노말에너지 획득량의 50%를 추가 획득한다.' },
   ]},

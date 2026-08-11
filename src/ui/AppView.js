@@ -1,5 +1,6 @@
 import { TYPE_LABELS } from '../data/types.js';
 import { formatNumber, formatEnergyNumber } from '../utils/format.js';
+import { pokemonConditionsToText } from '../utils/conditionText.js';
 
 const TAB_LABELS = {
   portal: '포탈',
@@ -532,6 +533,10 @@ export class AppView {
           <div><span>현재 개체 수</span><strong>${formatNumber(state.pokemon.counts[pokemon.id] ?? 0)}</strong></div>
           <div><span>가장 많았던 수</span><strong>${formatNumber(record.maxCount ?? 0)}</strong></div>
           <div><span>기본 생산</span><strong>${this.baseProductionText(pokemon)}</strong></div>
+        </div>
+        <div class="ability-box">
+          <h3>등장 조건</h3>
+          <p>${this.escapeHtml(pokemonConditionsToText(pokemon, this.pokemonData))}</p>
         </div>
         <div class="ability-box">
           <h3>능력</h3>
