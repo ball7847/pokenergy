@@ -12,20 +12,29 @@ export const POKEMON_DATA = [
   ], effects: [
     { type: 'second_tick_chance_count_energy', chance: 0.10, pokemon: 'rattata', energy: 'normal', value: 1, abilityName: '의욕', label: '[의욕] 10% 확률로 꼬렛의 수만큼 노말에너지를 추가 획득한다.' },
   ]},
-  { id: 'bulbasaur', dex: 1, name: '이상해씨', types: ['grass', 'poison'], conditions: [
-    { type: 'energy_min', energy: 'normal', value: 1000 },
+  { id: 'bulbasaur', dex: 1, name: '이상해씨', types: ['grass', 'poison'], conditionGroups: [
+    [{ type: 'energy_min', energy: 'normal', value: 1000 }],
+    [{ type: 'energy_min', energy: 'grass', value: 100 }],
   ], effects: [
-    { type: 'ditto_add_type', energy: 'grass', value: 1, label: '[메타몽 변신] 메타몽이 풀에너지를 추가 생산한다.' },
+    { type: 'ditto_add_type', energy: 'grass', value: 0.1, label: '[메타몽 변신] 메타몽이 풀에너지를 +0.1/s 추가 생산한다.' },
   ]},
-  { id: 'charmander', dex: 4, name: '파이리', types: ['fire'], conditions: [
-    { type: 'energy_min', energy: 'normal', value: 1000 },
+  { id: 'charmander', dex: 4, name: '파이리', types: ['fire'], conditionGroups: [
+    [{ type: 'energy_min', energy: 'normal', value: 1000 }],
+    [{ type: 'energy_min', energy: 'fire', value: 100 }],
   ], effects: [
-    { type: 'ditto_add_type', energy: 'fire', value: 1, label: '[메타몽 변신] 메타몽이 불꽃에너지를 추가 생산한다.' },
+    { type: 'ditto_add_type', energy: 'fire', value: 0.1, label: '[메타몽 변신] 메타몽이 불꽃에너지를 +0.1/s 추가 생산한다.' },
   ]},
-  { id: 'squirtle', dex: 7, name: '꼬부기', types: ['water'], conditions: [
-    { type: 'energy_min', energy: 'normal', value: 1000 },
+  { id: 'squirtle', dex: 7, name: '꼬부기', types: ['water'], conditionGroups: [
+    [{ type: 'energy_min', energy: 'normal', value: 1000 }],
+    [{ type: 'energy_min', energy: 'water', value: 100 }],
   ], effects: [
-    { type: 'ditto_add_type', energy: 'water', value: 1, label: '[메타몽 변신] 메타몽이 물에너지를 추가 생산한다.' },
+    { type: 'ditto_add_type', energy: 'water', value: 0.1, label: '[메타몽 변신] 메타몽이 물에너지를 +0.1/s 추가 생산한다.' },
+  ]},
+  { id: 'pikachu', dex: 25, name: '피카츄', types: ['electric'], conditionGroups: [
+    [{ type: 'energy_exact', energy: 'normal', value: 25 }],
+    [{ type: 'energy_min', energy: 'electric', value: 100 }],
+  ], effects: [
+    { type: 'ditto_add_type', energy: 'electric', value: 0.1, label: '[메타몽 변신] 메타몽이 전기에너지를 +0.1/s 추가 생산한다.' },
   ]},
   { id: 'piplup', dex: 393, name: '팽도리', types: ['water'], conditions: [
     { type: 'energy_min', energy: 'water', value: 10 },

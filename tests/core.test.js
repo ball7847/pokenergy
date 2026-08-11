@@ -127,29 +127,42 @@ test('v4 저장은 최신 버전에서 기존 메타몽 재지급 방지 플래�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.story.dittoGranted, true);
-  assert.equal(loaded.meta.saveVersion, 7);
+  assert.equal(loaded.meta.saveVersion, 8);
 });
 
 
-test('기본 포탈 쿨타임은 10초다', () => {
+test('포탈 쿨타임은 0~49회 2.5초, 50~99회 5초, 100회 이상 10초다', () => {
   const state = createInitialState();
   const { portalSystem } = createSystems();
+  state.portal.totalSummons = 0;
+  assert.equal(portalSystem.getCooldownSeconds(state), 2.5);
+  state.portal.totalSummons = 49;
+  assert.equal(portalSystem.getCooldownSeconds(state), 2.5);
+  state.portal.totalSummons = 50;
+  assert.equal(portalSystem.getCooldownSeconds(state), 5);
+  state.portal.totalSummons = 99;
+  assert.equal(portalSystem.getCooldownSeconds(state), 5);
+  state.portal.totalSummons = 100;
   assert.equal(portalSystem.getCooldownSeconds(state), 10);
 });
 
-test('100번째 포탈 소환에서 과부하가 발생하고 쿨타임이 30초가 된다', () => {
+test('50번째와 100번째 소환에서 각각 쿨타임 단계 이벤트가 발생한다', () => {
   const state = createInitialState();
   const { portalSystem } = createSystems(() => 0);
-  state.portal.totalSummons = 99;
-  state.resources.energy.normal = 10;
+  state.portal.totalSummons = 49;
+  state.resources.energy.normal = 20;
   state.portal.input.normal = 10;
-  const now = 1_000;
-  const result = portalSystem.summon(state, now);
-  assert.equal(result.ok, true);
-  assert.equal(result.totalSummons, 100);
-  assert.equal(result.overloadTriggered, true);
-  assert.equal(state.portal.overloaded, true);
-  assert.equal(state.portal.cooldownUntil, now + 30_000);
+  let result = portalSystem.summon(state, 1_000);
+  assert.equal(result.cooldownTierTriggered.minSummons, 50);
+  assert.equal(result.cooldownTierTriggered.seconds, 5);
+  assert.equal(state.portal.cooldownUntil, 6_000);
+
+  state.portal.cooldownUntil = 0;
+  state.portal.totalSummons = 99;
+  result = portalSystem.summon(state, 10_000);
+  assert.equal(result.cooldownTierTriggered.minSummons, 100);
+  assert.equal(result.cooldownTierTriggered.seconds, 10);
+  assert.equal(state.portal.cooldownUntil, 20_000);
 });
 
 test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포탈 소환 수를 복원한다', () => {
@@ -169,8 +182,7 @@ test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.portal.totalSummons, 10);
-  assert.equal(loaded.portal.overloaded, false);
-  assert.equal(loaded.meta.saveVersion, 7);
+    assert.equal(loaded.meta.saveVersion, 8);
 });
 
 
@@ -193,7 +205,7 @@ test('이상해씨 발견 후 메타몽은 풀에너지를 추가 생산한다',
   const { productionSystem } = createSystems(() => 0.99);
   const production = productionSystem.getProduction(state);
   assert.equal(production.normal, 3);
-  assert.equal(production.grass, 4); // 이상해씨 기본 1 + 메타몽 3
+  assert.equal(production.grass, 1.3); // 이상해씨 기본 1 + 메타몽 3×0.1
   assert.equal(production.poison, 1);
 });
 
@@ -220,5 +232,70 @@ test('기존 저장은 포켓몬 능력 로그 표시가 기본 ON으로 마이�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.settings.pokemonAbilityLogs, true);
-  assert.equal(loaded.meta.saveVersion, 7);
+  assert.equal(loaded.meta.saveVersion, 8);
+});
+
+
+test('이상해씨/파이리/꼬부기는 노말 1000 또는 자기 타입 100으로 등장한다', () => {
+  const { conditionSystem } = createSystems();
+  const cases = [
+    ['grass', 'bulbasaur'],
+    ['fire', 'charmander'],
+    ['water', 'squirtle'],
+  ];
+  for (const [energy, id] of cases) {
+    const state = createInitialState();
+    state.portal.input[energy] = 100;
+    const ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+    assert.equal(ids.includes(id), true, `${id} should match ${energy} 100`);
+  }
+});
+
+test('피카츄는 노말 정확히 25 또는 전기 100 이상에서 등장한다', () => {
+  const { conditionSystem } = createSystems();
+  const state1 = createInitialState();
+  state1.portal.input.normal = 25;
+  let ids = conditionSystem.getCandidates(state1, state1.portal.input).map(p => p.id);
+  assert.equal(ids.includes('pikachu'), true);
+
+  const state2 = createInitialState();
+  state2.portal.input.normal = 26;
+  ids = conditionSystem.getCandidates(state2, state2.portal.input).map(p => p.id);
+  assert.equal(ids.includes('pikachu'), false);
+
+  const state3 = createInitialState();
+  state3.portal.input.electric = 100;
+  ids = conditionSystem.getCandidates(state3, state3.portal.input).map(p => p.id);
+  assert.equal(ids.includes('pikachu'), true);
+});
+
+test('스타팅 4종 메타몽 변신은 메타몽 1마리당 해당 타입 +0.1/s다', () => {
+  const state = createInitialState();
+  state.pokemon.counts.ditto = 10;
+  state.pokemon.discovered.ditto = true;
+  for (const id of ['bulbasaur','charmander','squirtle','pikachu']) {
+    state.pokemon.counts[id] = 1;
+    state.pokemon.discovered[id] = true;
+  }
+  const { productionSystem } = createSystems(() => 0.99);
+  const production = productionSystem.getProduction(state);
+  assert.equal(production.grass, 2); // 이상해씨 1 + 메타몽 10×0.1
+  assert.equal(production.fire, 2);  // 파이리 1 + 메타몽 10×0.1
+  assert.equal(production.water, 2); // 꼬부기 1 + 메타몽 10×0.1
+  assert.equal(production.electric, 2); // 피카츄 1 + 메타몽 10×0.1
+});
+
+test('v7 저장의 폐기된 overloaded 플래그는 v8 마이그레이션에서 제거된다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 7;
+  legacy.portal.overloaded = true;
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.equal('overloaded' in loaded.portal, false);
+  assert.equal(loaded.meta.saveVersion, 8);
 });

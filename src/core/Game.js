@@ -74,8 +74,9 @@ export class Game {
       this.unlockSystem.recalculate(state);
       this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다. (총 ${result.count}마리)`);
       if (result.isNew) this.logNewPokemonEffects(result.pokemon);
-      if (result.overloadTriggered) {
-        this.addLog('important', `포탈이 과부하되었다. 재활성화 대기시간이 ${this.config.portal.overloadedCooldownSeconds}초로 증가했다.`);
+      if (result.cooldownTierTriggered) {
+        const { minSummons, seconds } = result.cooldownTierTriggered;
+        this.addLog('important', `포켓몬을 ${minSummons}마리 소환했다. 포탈 재활성화 대기시간이 ${seconds}초로 증가했다.`);
       }
     }, { notify: false });
     this.store.notify();

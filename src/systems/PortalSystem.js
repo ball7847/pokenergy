@@ -12,9 +12,19 @@ export class PortalSystem {
   }
 
   getBaseCooldownSeconds(state) {
-    return state.portal.overloaded
-      ? GAME_CONFIG.portal.overloadedCooldownSeconds
-      : GAME_CONFIG.portal.baseCooldownSeconds;
+    const totalSummons = state.portal.totalSummons ?? 0;
+    const tiers = GAME_CONFIG.portal.cooldownTiers;
+    let seconds = tiers[0]?.seconds ?? 2.5;
+    for (const tier of tiers) {
+      if (totalSummons >= tier.minSummons) seconds = tier.seconds;
+    }
+    return seconds;
+  }
+
+  getCooldownTierTrigger(previousSummons, totalSummons) {
+    return GAME_CONFIG.portal.cooldownTiers
+      .filter(tier => tier.minSummons > 0)
+      .find(tier => previousSummons < tier.minSummons && totalSummons >= tier.minSummons) ?? null;
   }
 
   getCooldownSeconds(state) {
@@ -46,10 +56,9 @@ export class PortalSystem {
     const pokemon = validation.candidates[index];
     const acquisition = this.pokemonSystem.acquire(state, pokemon.id, { now });
 
-    state.portal.totalSummons = (state.portal.totalSummons ?? 0) + 1;
-    const overloadTriggered = !state.portal.overloaded
-      && state.portal.totalSummons >= GAME_CONFIG.portal.overloadAtSummons;
-    if (overloadTriggered) state.portal.overloaded = true;
+    const previousSummons = state.portal.totalSummons ?? 0;
+    state.portal.totalSummons = previousSummons + 1;
+    const cooldownTierTriggered = this.getCooldownTierTrigger(previousSummons, state.portal.totalSummons);
 
     state.portal.cooldownUntil = now + this.getCooldownSeconds(state) * 1000;
     return {
@@ -59,7 +68,7 @@ export class PortalSystem {
       count: acquisition.count,
       candidateCount: validation.candidates.length,
       totalSummons: state.portal.totalSummons,
-      overloadTriggered,
+      cooldownTierTriggered,
     };
   }
 }

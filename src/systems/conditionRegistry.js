@@ -6,6 +6,9 @@ export function createConditionRegistry() {
   registry.register('energy_min', (condition, ctx) =>
     (ctx.portalInput[condition.energy] ?? 0) >= condition.value);
 
+  registry.register('energy_exact', (condition, ctx) =>
+    (ctx.portalInput[condition.energy] ?? 0) === condition.value);
+
   registry.register('total_energy_min', (condition, ctx) =>
     ctx.totalInput >= condition.value);
 

@@ -1,14 +1,16 @@
 export const GAME_CONFIG = Object.freeze({
   saveKey: 'pokenergy_save',
-  saveVersion: 7,
+  saveVersion: 8,
   autosaveMs: 10_000,
   tickMs: 100,
   maxTickSeconds: 2,
 
   portal: {
-    baseCooldownSeconds: 10,
-    overloadedCooldownSeconds: 30,
-    overloadAtSummons: 100,
+    cooldownTiers: [
+      { minSummons: 0, seconds: 2.5 },
+      { minSummons: 50, seconds: 5 },
+      { minSummons: 100, seconds: 10 },
+    ],
     minCooldownSeconds: 1,
     startingMaxEnergyTypes: 1,
   },

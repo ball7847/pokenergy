@@ -68,7 +68,7 @@ export class SaveSystem {
       migrated.runtime.lastProductionAt = Date.now();
     }
 
-    // v6부터 포탈 소환 횟수와 과부하 상태를 저장한다.
+    // v6부터 포탈 소환 횟수를 저장한다.
     // 기존 버전에는 포켓몬을 소모/방출하는 기능이 없으므로 현재 총 개체 수에서
     // 시작 연출로 지급된 메타몽 1마리를 빼면 기존 포탈 소환 횟수를 복원할 수 있다.
     if (version < 6) {
@@ -76,10 +76,8 @@ export class SaveSystem {
         .reduce((sum, count) => sum + (Number(count) || 0), 0);
       const introDitto = migrated.story?.dittoGranted && (migrated.pokemon.counts?.ditto ?? 0) > 0 ? 1 : 0;
       migrated.portal.totalSummons = Math.max(0, totalIndividuals - introDitto);
-      migrated.portal.overloaded = migrated.portal.totalSummons >= GAME_CONFIG.portal.overloadAtSummons;
     }
     migrated.portal.totalSummons ??= 0;
-    migrated.portal.overloaded ??= false;
 
     // v7부터 포켓몬 능력 발동 로그 표시 여부를 저장한다. 기존 플레이어는 기본 ON.
     if (version < 7) {
@@ -89,6 +87,9 @@ export class SaveSystem {
     migrated.settings ??= { pokemonAbilityLogs: true };
     migrated.settings.pokemonAbilityLogs ??= true;
     migrated.runtime.lastProductionAt ??= Date.now();
+
+    // v8부터 과부하 플래그를 폐기하고 누적 소환 수에 따른 쿨타임 단계로 계산한다.
+    if (version < 8) delete migrated.portal.overloaded;
 
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;
