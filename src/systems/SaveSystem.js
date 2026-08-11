@@ -53,6 +53,13 @@ export class SaveSystem {
     migrated.records.general ??= [];
     migrated.records.important ??= [];
 
+    // v3까지는 최신 기록을 배열 앞쪽에 저장했다.
+    // v4부터는 화면/데이터 모두 오래된 기록 -> 새로운 기록 순서로 통일한다.
+    if (version < 4) {
+      migrated.records.general = [...migrated.records.general].reverse();
+      migrated.records.important = [...migrated.records.important].reverse();
+    }
+
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;
   }

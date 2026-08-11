@@ -73,3 +73,37 @@ test('보유 에너지가 충분하고 유효한 후보가 있으면 포탈 활�
   assert.equal(result.ok, true);
   assert.equal(result.pokemon.id, 'rattata');
 });
+
+import { attachJosa, chooseJosa, hasBatchim } from '../src/utils/korean.js';
+import { SaveSystem } from '../src/systems/SaveSystem.js';
+
+test('한국어 조사 이/가를 받침 유무에 맞게 선택한다', () => {
+  assert.equal(hasBatchim('꼬렛'), true);
+  assert.equal(hasBatchim('피카츄'), false);
+  assert.equal(chooseJosa('꼬렛', '이/가'), '이');
+  assert.equal(chooseJosa('피카츄', '이/가'), '가');
+  assert.equal(attachJosa('꼬렛', '이/가'), '꼬렛이');
+  assert.equal(attachJosa('피카츄', '이/가'), '피카츄가');
+});
+
+test('v3 저장의 최신순 기록은 v4에서 오래된순으로 마이그레이션된다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 3;
+  legacy.records.general = [
+    { message: '새 기록', at: 300 },
+    { message: '옛 기록', at: 100 },
+  ];
+  legacy.records.important = [
+    { message: '새 중요', at: 400 },
+    { message: '옛 중요', at: 200 },
+  ];
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.deepEqual(loaded.records.general.map(x => x.message), ['옛 기록', '새 기록']);
+  assert.deepEqual(loaded.records.important.map(x => x.message), ['옛 중요', '새 중요']);
+});

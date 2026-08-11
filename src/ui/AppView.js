@@ -57,6 +57,14 @@ export class AppView {
 
   bindEvents() {
     this.root.addEventListener('click', event => {
+      const closeModalButton = event.target.closest('[data-action="close-dex-modal"]');
+      const clickedBackdrop = event.target.matches('[data-view="dex-modal"]');
+      if (closeModalButton || clickedBackdrop) {
+        event.preventDefault();
+        this.closeDexModal();
+        return;
+      }
+
       const tabButton = event.target.closest('[data-tab]');
       if (tabButton) {
         this.activeTab = tabButton.dataset.tab;
@@ -104,10 +112,6 @@ export class AppView {
         return;
       }
 
-      if (event.target.closest('[data-action="close-dex-modal"]') || event.target.matches('[data-view="dex-modal"]')) {
-        this.selectedPokemonId = null;
-        this.renderDexModal(this.store.getState());
-      }
     });
 
     this.root.addEventListener('input', event => {
@@ -124,6 +128,19 @@ export class AppView {
         this.render(this.store.getState());
       }
     });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && this.selectedPokemonId) this.closeDexModal();
+    });
+  }
+
+  closeDexModal() {
+    this.selectedPokemonId = null;
+    const modal = this.root.querySelector('[data-view="dex-modal"]');
+    if (modal) {
+      modal.hidden = true;
+      modal.innerHTML = '';
+    }
   }
 
   render(state, { force = false } = {}) {
@@ -142,17 +159,11 @@ export class AppView {
 
   structuralSignature(state) {
     const pokemonCounts = Object.entries(state.pokemon.counts ?? {}).filter(([, count]) => count > 0);
-    const generalRecords = state.records?.general ?? [];
-    const importantRecords = state.records?.important ?? [];
     return JSON.stringify({
       tab: this.activeTab,
       maxEnergyTypes: state.unlocks.maxEnergyTypes,
       pokemonCounts,
       discovered: Object.keys(state.pokemon.discovered ?? {}),
-      generalRecordCount: generalRecords.length,
-      importantRecordCount: importantRecords.length,
-      generalNewestAt: generalRecords[0]?.at ?? 0,
-      importantNewestAt: importantRecords[0]?.at ?? 0,
       dexOnlyDiscovered: this.dexOnlyDiscovered,
       selectedPokemonId: this.selectedPokemonId,
       saveVersion: state.meta.saveVersion,
@@ -161,7 +172,10 @@ export class AppView {
   }
 
   updateRuntimeValues(state) {
-    if (this.activeTab === 'portal') this.updatePortalDynamic(state);
+    if (this.activeTab === 'portal') {
+      this.updatePortalDynamic(state);
+      this.updateRecordPanels(state);
+    }
   }
 
   renderEnergyBar(state) {
@@ -189,7 +203,10 @@ export class AppView {
     const panel = this.root.querySelector(`[data-panel="${this.activeTab}"]`);
     if (!panel) return;
 
-    if (this.activeTab === 'portal') panel.innerHTML = this.portalTemplate(state);
+    if (this.activeTab === 'portal') {
+      panel.innerHTML = this.portalTemplate(state);
+      requestAnimationFrame(() => this.scrollRecordListsToBottom());
+    }
     if (this.activeTab === 'pokemon') panel.innerHTML = this.pokemonTemplate(state);
     if (this.activeTab === 'dex') panel.innerHTML = this.dexTemplate(state);
     if (this.activeTab === 'settings') panel.innerHTML = this.settingsTemplate(state);
@@ -250,21 +267,59 @@ export class AppView {
 
   recordPanelTemplate(kind, title, records) {
     return `
-      <section class="record-panel record-panel-${kind}">
+      <section class="record-panel record-panel-${kind}" data-record-kind="${kind}" data-record-signature="${this.recordSignature(records)}">
         <div class="section-heading log-heading">
           <div><span class="eyebrow">${kind === 'important' ? 'IMPORTANT RECORD' : 'GENERAL RECORD'}</span><h1>${title}</h1></div>
-          <span class="record-count">${records.length}</span>
+          <span class="record-count" data-record-count>${records.length}</span>
         </div>
-        <div class="record-list">
-          ${records.length ? records.map(record => `
-            <article class="record-entry ${kind}">
-              <time>${this.formatDateTime(record.at)}</time>
-              <p>${this.escapeHtml(record.message)}</p>
-            </article>
-          `).join('') : '<div class="empty-state">아직 기록이 없습니다.</div>'}
-        </div>
+        <div class="record-list" data-record-list>${this.recordEntriesHtml(kind, records)}</div>
       </section>
     `;
+  }
+
+  recordEntriesHtml(kind, records) {
+    if (!records.length) return '<div class="empty-state">아직 기록이 없습니다.</div>';
+    return records.map(record => `
+      <article class="record-entry ${kind}">
+        <time>${this.formatDateTime(record.at)}</time>
+        <p>${this.escapeHtml(record.message)}</p>
+      </article>
+    `).join('');
+  }
+
+  recordSignature(records) {
+    if (!records.length) return '0';
+    return `${records.length}:${records[0]?.at ?? 0}:${records.at(-1)?.at ?? 0}`;
+  }
+
+  updateRecordPanels(state) {
+    const panel = this.root.querySelector('[data-panel="portal"]');
+    if (!panel || panel.hidden) return;
+
+    for (const kind of ['important', 'general']) {
+      const records = state.records?.[kind] ?? [];
+      const recordPanel = panel.querySelector(`[data-record-kind="${kind}"]`);
+      if (!recordPanel) continue;
+      const signature = this.recordSignature(records);
+      if (recordPanel.dataset.recordSignature === signature) continue;
+
+      const list = recordPanel.querySelector('[data-record-list]');
+      const count = recordPanel.querySelector('[data-record-count]');
+      if (list) list.innerHTML = this.recordEntriesHtml(kind, records);
+      if (count) count.textContent = records.length;
+      recordPanel.dataset.recordSignature = signature;
+
+      // 새 기록은 아래에 추가되므로 새 로그가 보이도록 해당 창의 맨 아래로 이동한다.
+      requestAnimationFrame(() => {
+        if (list) list.scrollTop = list.scrollHeight;
+      });
+    }
+  }
+
+  scrollRecordListsToBottom() {
+    for (const list of this.root.querySelectorAll('[data-record-list]')) {
+      list.scrollTop = list.scrollHeight;
+    }
   }
 
   updatePortalDynamic(state) {

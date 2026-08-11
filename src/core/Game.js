@@ -1,4 +1,5 @@
 import { INTRO_LOG_LINES } from '../data/story.js';
+import { attachJosa } from '../utils/korean.js';
 
 export class Game {
   constructor({ store, productionSystem, portalSystem, unlockSystem, saveSystem, config, createInitialState }) {
@@ -49,7 +50,7 @@ export class Game {
       if (!result.ok) return;
 
       this.unlockSystem.recalculate(state);
-      this.addLog('general', `포탈에서 ${result.pokemon.name}이(가) 나타났다.`);
+      this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다.`);
 
       if (result.isNew) {
         this.addLog('important', `새로운 포켓몬 발견: ${result.pokemon.name}`);
@@ -67,8 +68,8 @@ export class Game {
     const bucket = kind === 'important' ? 'important' : 'general';
     if (!state.records) state.records = { general: [], important: [] };
     if (!Array.isArray(state.records[bucket])) state.records[bucket] = [];
-    state.records[bucket].unshift({ message, at });
-    state.records[bucket] = state.records[bucket].slice(0, 500);
+    state.records[bucket].push({ message, at });
+    state.records[bucket] = state.records[bucket].slice(-500);
   }
 
   save() {
