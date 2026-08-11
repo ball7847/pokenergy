@@ -1,5 +1,3 @@
-import { GAME_CONFIG } from '../config/gameConfig.js';
-
 export class ProductionSystem {
   constructor({ pokemonData, energyTypes, effectSystem, random = Math.random }) {
     this.pokemonData = pokemonData;
@@ -21,12 +19,8 @@ export class ProductionSystem {
       const count = state.pokemon.counts[pokemon.id] ?? 0;
       if (!count) continue;
 
-      if (pokemon.types.length === 1) {
-        production[pokemon.types[0]] += count;
-      } else if (GAME_CONFIG.prototypeRules.dualTypeBaseProductionMode === 'split') {
-        const perType = 1 / pokemon.types.length;
-        for (const type of pokemon.types) production[type] += count * perType;
-      }
+      // 확정 규칙: 단일/복합 타입 모두 자신의 각 타입 에너지를 1마리당 +1/s 생산한다.
+      for (const type of pokemon.types) production[type] += count;
     }
 
     this.effectSystem.runHook('production:additive', state, { production, energyTypes: this.energyTypes });
@@ -43,15 +37,17 @@ export class ProductionSystem {
   /** 정확히 1초 생산분을 계산하고 상태에 반영한다. 확률형 능력도 이 시점에 1회 판정한다. */
   produceOneSecond(state) {
     const gains = { ...this.getProduction(state) };
+    const abilityEvents = [];
     this.effectSystem.runHook('production:second_tick', state, {
       gains,
       energyTypes: this.energyTypes,
       random: this.random,
+      abilityEvents,
     });
 
     for (const type of this.energyTypes) {
       state.resources.energy[type] += gains[type] ?? 0;
     }
-    return gains;
+    return { gains, abilityEvents };
   }
 }

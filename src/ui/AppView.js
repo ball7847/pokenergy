@@ -128,6 +128,9 @@ export class AppView {
         this.dexOnlyDiscovered = event.target.checked;
         this.render(this.store.getState());
       }
+      if (event.target.matches('[data-action="ability-log-toggle"]')) {
+        this.game.setPokemonAbilityLogs(event.target.checked);
+      }
     });
 
     document.addEventListener('keydown', event => {
@@ -171,6 +174,7 @@ export class AppView {
       selectedPokemonId: this.selectedPokemonId,
       saveVersion: state.meta.saveVersion,
       lastSaveNotice: this.lastSaveNotice,
+      pokemonAbilityLogs: state.settings?.pokemonAbilityLogs !== false,
     });
   }
 
@@ -261,8 +265,8 @@ export class AppView {
         </section>
 
         <section class="record-area">
-          ${this.recordPanelTemplate('important', '중요 기록', importantRecords)}
           ${this.recordPanelTemplate('general', '일반 기록', generalRecords)}
+          ${this.recordPanelTemplate('important', '중요 기록', importantRecords)}
         </section>
       </div>
     `;
@@ -365,7 +369,7 @@ export class AppView {
     }
     const text = {
       cooldown: '포탈이 재활성화되는 중입니다.',
-      empty_input: '에너지를 1개 이상 투입하세요.',
+      empty_input: '포탈에 에너지를 투입하세요',
       too_many_types: '현재 동시에 투입할 수 있는 에너지 타입 수를 초과했습니다.',
       insufficient_energy: '보유한 에너지가 부족합니다.',
       no_candidates: '현재 조건에 반응하는 포켓몬이 없습니다.',
@@ -458,6 +462,16 @@ export class AppView {
             </dl>
           </section>
 
+          <section class="settings-card">
+            <h2>기록 설정</h2>
+            <p>포켓몬의 확률형 능력이 발동했을 때 일반 기록에 발동 내용을 표시할지 설정합니다.</p>
+            <label class="toggle-control settings-toggle">
+              <input type="checkbox" data-action="ability-log-toggle" ${state.settings?.pokemonAbilityLogs !== false ? 'checked' : ''}>
+              <span class="toggle-track"><span></span></span>
+              <b>포켓몬 능력 로그 표시</b>
+            </label>
+          </section>
+
           <section class="settings-card danger-card">
             <h2>게임 초기화</h2>
             <p>모든 포켓몬, 에너지, 도감, 기록을 삭제하고 세계관 도입부터 다시 시작합니다.</p>
@@ -528,8 +542,7 @@ export class AppView {
   }
 
   baseProductionText(pokemon) {
-    if (pokemon.types.length === 1) return `${TYPE_LABELS[pokemon.types[0]]}에너지 +1/s`;
-    return pokemon.types.map(type => `${TYPE_LABELS[type]} +${(1 / pokemon.types.length).toFixed(1)}/s`).join(' · ') + ' (임시 규칙)';
+    return pokemon.types.map(type => `${TYPE_LABELS[type]}에너지 +1/s`).join(' · ');
   }
 
   pokemonSprite(pokemon, large, extraClass = '') {

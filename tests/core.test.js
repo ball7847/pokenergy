@@ -40,9 +40,9 @@ test('메타몽은 노말만 10 이상 투입할 때 후보가 된다', () => {
   assert.equal(ids.includes('ditto'), false);
 });
 
-test('노말 100 투입 시 메타몽과 꼬렛이 후보가 된다', () => {
+test('노말 50 투입 시 메타몽과 꼬렛이 후보가 된다', () => {
   const state = createInitialState();
-  state.portal.input.normal = 100;
+  state.portal.input.normal = 50;
   const { conditionSystem } = createSystems();
   const ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id).sort();
   assert.deepEqual(ids, ['ditto', 'rattata'].sort());
@@ -127,7 +127,7 @@ test('v4 저장은 최신 버전에서 기존 메타몽 재지급 방지 플래�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.story.dittoGranted, true);
-  assert.equal(loaded.meta.saveVersion, 6);
+  assert.equal(loaded.meta.saveVersion, 7);
 });
 
 
@@ -170,5 +170,55 @@ test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포�
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.portal.totalSummons, 10);
   assert.equal(loaded.portal.overloaded, false);
-  assert.equal(loaded.meta.saveVersion, 6);
+  assert.equal(loaded.meta.saveVersion, 7);
+});
+
+
+test('복합타입 포켓몬은 각 타입 에너지를 1씩 생산한다', () => {
+  const state = createInitialState();
+  state.pokemon.counts.bulbasaur = 2;
+  state.pokemon.discovered.bulbasaur = true;
+  const { productionSystem } = createSystems(() => 0.99);
+  productionSystem.produceOneSecond(state);
+  assert.equal(state.resources.energy.grass, 2);
+  assert.equal(state.resources.energy.poison, 2);
+});
+
+test('이상해씨 발견 후 메타몽은 풀에너지를 추가 생산한다', () => {
+  const state = createInitialState();
+  state.pokemon.counts.ditto = 3;
+  state.pokemon.discovered.ditto = true;
+  state.pokemon.counts.bulbasaur = 1;
+  state.pokemon.discovered.bulbasaur = true;
+  const { productionSystem } = createSystems(() => 0.99);
+  const production = productionSystem.getProduction(state);
+  assert.equal(production.normal, 3);
+  assert.equal(production.grass, 4); // 이상해씨 기본 1 + 메타몽 3
+  assert.equal(production.poison, 1);
+});
+
+test('꼬렛 의욕 발동 시 능력 이벤트가 생성된다', () => {
+  const state = createInitialState();
+  state.pokemon.counts.rattata = 4;
+  state.pokemon.discovered.rattata = true;
+  const { productionSystem } = createSystems(() => 0.01);
+  const result = productionSystem.produceOneSecond(state);
+  assert.equal(result.abilityEvents.length, 1);
+  assert.equal(result.abilityEvents[0].abilityName, '의욕');
+  assert.equal(result.abilityEvents[0].amount, 4);
+});
+
+test('기존 저장은 포켓몬 능력 로그 표시가 기본 ON으로 마이그레이션된다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 6;
+  delete legacy.settings;
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.equal(loaded.settings.pokemonAbilityLogs, true);
+  assert.equal(loaded.meta.saveVersion, 7);
 });

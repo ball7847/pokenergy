@@ -34,7 +34,14 @@ export function createEffectRegistry() {
     if (ctx.random() >= effect.chance) return;
     const count = ctx.state.pokemon.counts[effect.pokemon] ?? 0;
     if (count <= 0) return;
-    ctx.gains[effect.energy] = (ctx.gains[effect.energy] ?? 0) + count * (effect.value ?? 1);
+    const amount = count * (effect.value ?? 1);
+    ctx.gains[effect.energy] = (ctx.gains[effect.energy] ?? 0) + amount;
+    ctx.abilityEvents?.push({
+      pokemonId: effect.pokemon,
+      abilityName: effect.abilityName ?? effect.type,
+      energy: effect.energy,
+      amount,
+    });
   });
 
   registry.register('cooldown_flat', (effect, ctx) => {

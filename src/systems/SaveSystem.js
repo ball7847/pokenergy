@@ -80,6 +80,14 @@ export class SaveSystem {
     }
     migrated.portal.totalSummons ??= 0;
     migrated.portal.overloaded ??= false;
+
+    // v7부터 포켓몬 능력 발동 로그 표시 여부를 저장한다. 기존 플레이어는 기본 ON.
+    if (version < 7) {
+      migrated.settings ??= {};
+      migrated.settings.pokemonAbilityLogs = true;
+    }
+    migrated.settings ??= { pokemonAbilityLogs: true };
+    migrated.settings.pokemonAbilityLogs ??= true;
     migrated.runtime.lastProductionAt ??= Date.now();
 
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;

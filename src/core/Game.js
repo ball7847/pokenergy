@@ -1,5 +1,6 @@
 import { INTRO_LOG_LINES } from '../data/story.js';
 import { attachJosa } from '../utils/korean.js';
+import { TYPE_LABELS } from '../data/types.js';
 
 export class Game {
   constructor({ store, productionSystem, portalSystem, pokemonSystem, unlockSystem, saveSystem, config, createInitialState }) {
@@ -41,10 +42,24 @@ export class Game {
       Math.floor(Math.max(0, now - state.runtime.lastProductionAt) / 1000),
     );
     for (let i = 0; i < elapsedWholeSeconds; i += 1) {
-      this.productionSystem.produceOneSecond(state);
+      const { abilityEvents } = this.productionSystem.produceOneSecond(state);
+      if (state.settings?.pokemonAbilityLogs !== false) {
+        for (const event of abilityEvents) {
+          const pokemon = this.pokemonSystem.byId.get(event.pokemonId);
+          if (!pokemon) continue;
+          this.addLog('general', `${pokemon.name}의 [${event.abilityName}] 발동! ${TYPE_LABELS[event.energy]}에너지 +${event.amount} 획득`);
+        }
+      }
       state.runtime.lastProductionAt += 1000;
     }
     this.store.notify();
+  }
+
+  setPokemonAbilityLogs(enabled) {
+    this.store.mutate(state => {
+      state.settings ??= {};
+      state.settings.pokemonAbilityLogs = Boolean(enabled);
+    });
   }
 
   setPortalInput(type, amount) {
@@ -127,6 +142,7 @@ export class Game {
       current.story.dittoGranted = true;
       current.story.introComplete = true;
       this.unlockSystem.recalculate(current);
+      this.addLog('general', `${attachJosa(acquisition.pokemon.name, '을/를')} 획득했다. (총 ${acquisition.count}마리)`);
       if (acquisition.isNew) this.logNewPokemonEffects(acquisition.pokemon);
       this.store.notify();
       this.introTimer = null;

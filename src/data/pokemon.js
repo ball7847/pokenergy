@@ -8,20 +8,24 @@ export const POKEMON_DATA = [
     { type: 'energy_min', energy: 'normal', value: 10 },
   ]},
   { id: 'rattata', dex: 19, name: '꼬렛', types: ['normal'], conditions: [
-    { type: 'energy_min', energy: 'normal', value: 100 },
+    { type: 'energy_min', energy: 'normal', value: 50 },
   ], effects: [
-    { type: 'second_tick_chance_count_energy', chance: 0.10, pokemon: 'rattata', energy: 'normal', value: 1, label: '[의욕] 매초 10% 확률로 꼬렛의 수만큼 노말에너지를 추가 획득한다.' },
+    { type: 'second_tick_chance_count_energy', chance: 0.10, pokemon: 'rattata', energy: 'normal', value: 1, abilityName: '의욕', label: '[의욕] 10% 확률로 꼬렛의 수만큼 노말에너지를 추가 획득한다.' },
   ]},
   { id: 'bulbasaur', dex: 1, name: '이상해씨', types: ['grass', 'poison'], conditions: [
     { type: 'energy_min', energy: 'normal', value: 1000 },
+  ], effects: [
+    { type: 'ditto_add_type', energy: 'grass', value: 1, label: '[메타몽 변신] 메타몽이 풀에너지를 추가 생산한다.' },
   ]},
   { id: 'charmander', dex: 4, name: '파이리', types: ['fire'], conditions: [
     { type: 'energy_min', energy: 'normal', value: 1000 },
   ], effects: [
-    { type: 'ditto_add_type', energy: 'fire', value: 1, label: '[메타몽 변신 - 파이리] 메타몽이 불꽃에너지를 추가 생산한다.' },
+    { type: 'ditto_add_type', energy: 'fire', value: 1, label: '[메타몽 변신] 메타몽이 불꽃에너지를 추가 생산한다.' },
   ]},
   { id: 'squirtle', dex: 7, name: '꼬부기', types: ['water'], conditions: [
     { type: 'energy_min', energy: 'normal', value: 1000 },
+  ], effects: [
+    { type: 'ditto_add_type', energy: 'water', value: 1, label: '[메타몽 변신] 메타몽이 물에너지를 추가 생산한다.' },
   ]},
   { id: 'piplup', dex: 393, name: '팽도리', types: ['water'], conditions: [
     { type: 'energy_min', energy: 'water', value: 10 },

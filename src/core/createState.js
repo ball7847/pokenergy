@@ -36,6 +36,7 @@ export function createInitialState(now = Date.now()) {
       lastProductionAt: now,
     },
     records: { general: [], important: [] },
+    settings: { pokemonAbilityLogs: true },
     debug: { productionSpeed: 1 },
   };
 }
