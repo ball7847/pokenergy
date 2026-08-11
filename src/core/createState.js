@@ -31,7 +31,7 @@ export function createInitialState(now = Date.now()) {
       introComplete: false,
     },
     runtime: { lastTickAt: now },
-    logs: [],
+    records: { general: [], important: [] },
     debug: { productionSpeed: 1 },
   };
 }

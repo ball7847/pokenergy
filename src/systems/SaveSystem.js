@@ -36,9 +36,22 @@ export class SaveSystem {
         }
         migrated.pokemon.records[id].maxCount = Math.max(migrated.pokemon.records[id].maxCount ?? 0, count ?? 0);
       }
-      migrated.logs = (migrated.logs ?? []).map(log => ({ kind: log.kind ?? 'general', ...log }));
       migrated.story = { introNextIndex: 0, introComplete: false };
     }
+
+    // v2까지는 일반/중요 기록이 하나의 logs 배열에 섞여 있었다.
+    if (version < 3) {
+      const legacyLogs = Array.isArray(saved?.logs) ? saved.logs : [];
+      migrated.records = {
+        general: legacyLogs.filter(log => (log.kind ?? 'general') !== 'important').map(({ message, at }) => ({ message, at })),
+        important: legacyLogs.filter(log => log.kind === 'important').map(({ message, at }) => ({ message, at })),
+      };
+      delete migrated.logs;
+    }
+
+    if (!migrated.records) migrated.records = { general: [], important: [] };
+    migrated.records.general ??= [];
+    migrated.records.important ??= [];
 
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;

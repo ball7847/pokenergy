@@ -16,13 +16,14 @@ export class AppView {
     this.dexOnlyDiscovered = false;
     this.selectedPokemonId = null;
     this.lastSaveNotice = '';
+    this.lastStructuralSignature = '';
   }
 
   mount() {
     this.root.innerHTML = this.template();
     this.bindEvents();
     this.unsubscribe = this.store.subscribe(state => this.render(state));
-    this.render(this.store.getState());
+    this.render(this.store.getState(), { force: true });
   }
 
   template() {
@@ -111,7 +112,10 @@ export class AppView {
 
     this.root.addEventListener('input', event => {
       const type = event.target.dataset.energyInput;
-      if (type) this.game.setPortalInput(type, event.target.value);
+      if (type) {
+        this.game.setPortalInput(type, event.target.value);
+        this.updatePortalDynamic(this.store.getState());
+      }
     });
 
     this.root.addEventListener('change', event => {
@@ -122,11 +126,42 @@ export class AppView {
     });
   }
 
-  render(state) {
+  render(state, { force = false } = {}) {
     this.renderEnergyBar(state);
     this.renderNavigation();
-    this.renderActivePanel(state);
+
+    const signature = this.structuralSignature(state);
+    if (force || signature !== this.lastStructuralSignature) {
+      this.renderActivePanel(state);
+      this.lastStructuralSignature = signature;
+    }
+
+    this.updateRuntimeValues(state);
     this.renderDexModal(state);
+  }
+
+  structuralSignature(state) {
+    const pokemonCounts = Object.entries(state.pokemon.counts ?? {}).filter(([, count]) => count > 0);
+    const generalRecords = state.records?.general ?? [];
+    const importantRecords = state.records?.important ?? [];
+    return JSON.stringify({
+      tab: this.activeTab,
+      maxEnergyTypes: state.unlocks.maxEnergyTypes,
+      pokemonCounts,
+      discovered: Object.keys(state.pokemon.discovered ?? {}),
+      generalRecordCount: generalRecords.length,
+      importantRecordCount: importantRecords.length,
+      generalNewestAt: generalRecords[0]?.at ?? 0,
+      importantNewestAt: importantRecords[0]?.at ?? 0,
+      dexOnlyDiscovered: this.dexOnlyDiscovered,
+      selectedPokemonId: this.selectedPokemonId,
+      saveVersion: state.meta.saveVersion,
+      lastSaveNotice: this.lastSaveNotice,
+    });
+  }
+
+  updateRuntimeValues(state) {
+    if (this.activeTab === 'portal') this.updatePortalDynamic(state);
   }
 
   renderEnergyBar(state) {
@@ -167,13 +202,15 @@ export class AppView {
     const usedTypes = this.energyTypes.filter(type => (state.portal.input[type] ?? 0) > 0).length;
     const totalInput = Object.values(state.portal.input).reduce((sum, value) => sum + (Number(value) || 0), 0);
     const disabled = !validation.ok;
+    const generalRecords = state.records?.general ?? [];
+    const importantRecords = state.records?.important ?? [];
 
     return `
       <div class="portal-layout">
         <section class="portal-column portal-input-panel">
           <div class="section-heading">
             <div><span class="eyebrow">PORTAL INPUT</span><h1>투입 에너지</h1></div>
-            <span class="limit-badge">${usedTypes} / ${state.unlocks.maxEnergyTypes} 타입</span>
+            <span class="limit-badge" data-view="used-types">${usedTypes} / ${state.unlocks.maxEnergyTypes} 타입</span>
           </div>
           <div class="portal-input-list">
             ${this.energyTypes.map(type => `
@@ -181,45 +218,90 @@ export class AppView {
                 <span class="type-dot"></span>
                 <span class="input-type-name">${TYPE_LABELS[type]}</span>
                 <input type="number" min="0" step="1" inputmode="numeric" data-energy-input="${type}" value="${state.portal.input[type] ?? 0}">
-                <small>/ ${formatNumber(state.resources.energy[type] ?? 0)}</small>
+                <small data-view="energy-owned" data-energy-type="${type}">/ ${formatNumber(state.resources.energy[type] ?? 0)}</small>
               </label>
             `).join('')}
           </div>
           <div class="input-footer">
-            <span>총 투입량</span><strong>${formatNumber(totalInput)}</strong>
+            <span>총 투입량</span><strong data-view="total-input">${formatNumber(totalInput)}</strong>
           </div>
         </section>
 
         <section class="portal-center">
-          <div class="portal-visual ${cooldown > 0 ? 'cooling' : ''}">
+          <div class="portal-visual ${cooldown > 0 ? 'cooling' : ''}" data-view="portal-visual">
             <div class="portal-ring ring-outer"></div>
             <div class="portal-ring ring-mid"></div>
             <div class="portal-core"></div>
           </div>
           <button class="activate-button" data-action="summon" type="button" ${disabled ? 'disabled' : ''}>포탈 활성화</button>
-          <div class="cooldown-text ${cooldown > 0 ? 'active' : ''}">
+          <div class="cooldown-text ${cooldown > 0 ? 'active' : ''}" data-view="cooldown-text">
             ${cooldown > 0 ? `재활성화까지 ${cooldown.toFixed(1)}초` : '포탈 사용 가능'}
           </div>
-          <div class="portal-status">${this.portalStatusText(validation, candidates)}</div>
+          <div class="portal-status" data-view="portal-status">${this.portalStatusText(validation, candidates)}</div>
         </section>
 
-        <section class="portal-column log-panel">
-          <div class="section-heading log-heading">
-            <div><span class="eyebrow">RECORD</span><h1>기록</h1></div>
-            <span class="record-count">${state.logs.length}</span>
-          </div>
-          <div class="record-list">
-            ${state.logs.length ? state.logs.map(log => `
-              <article class="record-entry ${log.kind === 'important' ? 'important' : 'general'}">
-                <time>${this.formatDateTime(log.at)}</time>
-                <div class="record-kind">${log.kind === 'important' ? '중요' : '일반'}</div>
-                <p>${this.escapeHtml(log.message)}</p>
-              </article>
-            `).join('') : '<div class="empty-state">아직 기록이 없습니다.</div>'}
-          </div>
+        <section class="record-area">
+          ${this.recordPanelTemplate('important', '중요 기록', importantRecords)}
+          ${this.recordPanelTemplate('general', '일반 기록', generalRecords)}
         </section>
       </div>
     `;
+  }
+
+  recordPanelTemplate(kind, title, records) {
+    return `
+      <section class="record-panel record-panel-${kind}">
+        <div class="section-heading log-heading">
+          <div><span class="eyebrow">${kind === 'important' ? 'IMPORTANT RECORD' : 'GENERAL RECORD'}</span><h1>${title}</h1></div>
+          <span class="record-count">${records.length}</span>
+        </div>
+        <div class="record-list">
+          ${records.length ? records.map(record => `
+            <article class="record-entry ${kind}">
+              <time>${this.formatDateTime(record.at)}</time>
+              <p>${this.escapeHtml(record.message)}</p>
+            </article>
+          `).join('') : '<div class="empty-state">아직 기록이 없습니다.</div>'}
+        </div>
+      </section>
+    `;
+  }
+
+  updatePortalDynamic(state) {
+    const panel = this.root.querySelector('[data-panel="portal"]');
+    if (!panel || panel.hidden) return;
+
+    const validation = this.game.portalSystem.validate(state);
+    const candidates = this.game.portalSystem.getCandidates(state);
+    const cooldown = Math.max(0, state.portal.cooldownUntil - Date.now()) / 1000;
+    const usedTypes = this.energyTypes.filter(type => (state.portal.input[type] ?? 0) > 0).length;
+    const totalInput = Object.values(state.portal.input).reduce((sum, value) => sum + (Number(value) || 0), 0);
+
+    const usedTypesEl = panel.querySelector('[data-view="used-types"]');
+    if (usedTypesEl) usedTypesEl.textContent = `${usedTypes} / ${state.unlocks.maxEnergyTypes} 타입`;
+
+    const totalInputEl = panel.querySelector('[data-view="total-input"]');
+    if (totalInputEl) totalInputEl.textContent = formatNumber(totalInput);
+
+    for (const type of this.energyTypes) {
+      const owned = panel.querySelector(`[data-view="energy-owned"][data-energy-type="${type}"]`);
+      if (owned) owned.textContent = `/ ${formatNumber(state.resources.energy[type] ?? 0)}`;
+    }
+
+    const button = panel.querySelector('[data-action="summon"]');
+    if (button) button.disabled = !validation.ok;
+
+    const cooldownText = panel.querySelector('[data-view="cooldown-text"]');
+    if (cooldownText) {
+      cooldownText.textContent = cooldown > 0 ? `재활성화까지 ${cooldown.toFixed(1)}초` : '포탈 사용 가능';
+      cooldownText.classList.toggle('active', cooldown > 0);
+    }
+
+    const visual = panel.querySelector('[data-view="portal-visual"]');
+    if (visual) visual.classList.toggle('cooling', cooldown > 0);
+
+    const status = panel.querySelector('[data-view="portal-status"]');
+    if (status) status.textContent = this.portalStatusText(validation, candidates);
   }
 
   portalStatusText(validation, candidates) {

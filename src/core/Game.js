@@ -64,8 +64,11 @@ export class Game {
 
   addLog(kind, message, at = Date.now()) {
     const state = this.store.getState();
-    state.logs.unshift({ kind, message, at });
-    state.logs = state.logs.slice(0, 500);
+    const bucket = kind === 'important' ? 'important' : 'general';
+    if (!state.records) state.records = { general: [], important: [] };
+    if (!Array.isArray(state.records[bucket])) state.records[bucket] = [];
+    state.records[bucket].unshift({ message, at });
+    state.records[bucket] = state.records[bucket].slice(0, 500);
   }
 
   save() {

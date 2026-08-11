@@ -1,6 +1,6 @@
 export const GAME_CONFIG = Object.freeze({
   saveKey: 'pokenergy_save',
-  saveVersion: 2,
+  saveVersion: 3,
   autosaveMs: 10_000,
   tickMs: 100,
   maxTickSeconds: 2,

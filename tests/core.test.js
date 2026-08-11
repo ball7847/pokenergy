@@ -61,3 +61,15 @@ test('신규 포켓몬 획득 시 최초 발견일과 역대 최대 수가 기�
   assert.equal(record.discoveredAt, 5_000);
   assert.equal(record.maxCount, 1);
 });
+
+test('보유 에너지가 충분하고 유효한 후보가 있으면 포탈 활성화가 허용된다', () => {
+  const state = createInitialState();
+  state.resources.energy.normal = 1;
+  state.portal.input.normal = 1;
+  const { portalSystem } = createSystems(() => 0);
+  const validation = portalSystem.validate(state, 1_000);
+  assert.equal(validation.ok, true);
+  const result = portalSystem.summon(state, 1_000);
+  assert.equal(result.ok, true);
+  assert.equal(result.pokemon.id, 'rattata');
+});

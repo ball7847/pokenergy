@@ -1,53 +1,28 @@
 # Pokenergy
 
-GitHub Pages에 그대로 올려 실행하는 정적 웹게임 프로젝트입니다. 별도의 빌드 과정이나 npm 설치가 필요하지 않습니다.
+GitHub Pages에 그대로 배포하는 정적 웹게임 프로젝트입니다. 별도의 빌드 과정이나 npm 설치 없이 저장소 루트의 `index.html`을 GitHub Pages가 실행합니다.
 
-## 배포 방법
+## 배포
 
-1. 이 저장소의 파일을 GitHub 저장소 최상단에 업로드합니다.
-2. 저장소의 **Settings → Pages**로 이동합니다.
-3. **Build and deployment → Deploy from a branch**를 선택합니다.
-4. Branch는 `main`, 폴더는 `/(root)`를 선택하고 저장합니다.
-5. 생성된 GitHub Pages 주소로 접속합니다.
+1. 이 폴더의 파일을 GitHub 저장소 최상단에 업로드합니다.
+2. Settings → Pages → Build and deployment에서 `Deploy from a branch`를 선택합니다.
+3. Branch는 `main`, Folder는 `/(root)`로 설정합니다.
+4. 배포가 완료된 뒤 GitHub Pages 주소로 접속합니다.
 
-## 프로젝트 구조
+## v0.5 변경점
 
-```text
-pokenergy/
-├─ index.html
-├─ .nojekyll
-└─ src/
-   ├─ main.js
-   ├─ styles.css
-   ├─ config/
-   ├─ data/
-   ├─ core/
-   ├─ systems/
-   ├─ ui/
-   └─ utils/
-```
+- 일반 기록과 중요 기록을 저장 데이터부터 완전히 분리했습니다.
+- 포탈 화면을 한 화면 높이에 맞도록 재배치했습니다.
+- 중앙 포탈 영역을 축소하고 투입 에너지/기록 영역을 확대했습니다.
+- 게임 틱마다 포탈 탭 전체 DOM을 재생성하던 문제를 수정했습니다.
+- 에너지 수치, 쿨타임, 활성화 가능 여부만 실시간 갱신합니다.
+- 이 변경으로 포탈 버튼 클릭과 에너지 입력이 갱신 타이밍에 의해 끊기던 문제를 해결했습니다.
+- 세이브 버전은 v3이며 기존 v2 기록은 일반/중요 기록으로 자동 분리됩니다.
 
-## 현재 UI 구조
+## 구조
 
-- 상단 고정 바: 18타입 에너지 보유량 / 초당 생산량
-- 좌측 고정 메뉴: 포탈 / 포켓몬 / 도감 / 설정
-- 포탈: 투입 에너지 / 포탈 활성화 / 기록
-- 포켓몬: 현재 보유 중인 포켓몬과 개체 수
-- 도감: 도감번호 정렬, 발견 필터, 상세 정보
-- 설정: 수동 저장 / 불러오기 / 초기화
-
-## 확장 원칙
-
-- 새 포켓몬: `src/data/pokemon.js`
-- 세계관/도입 기록: `src/data/story.js`
-- 새 조건 종류: `src/systems/conditionRegistry.js`
-- 새 효과 종류: `src/systems/effectRegistry.js`
-- 포탈 동작: `src/systems/PortalSystem.js`
-- 생산 계산: `src/systems/ProductionSystem.js`
-- 화면: `src/ui/AppView.js`
-
-포켓몬별 조건과 효과는 데이터로 정의하며 핵심 시스템에 포켓몬별 `if` 문을 추가하지 않는 것을 원칙으로 합니다.
-
-## 외부 이미지
-
-현재 도감/포켓몬 화면의 테스트용 포켓몬 이미지는 PokeAPI sprites GitHub 저장소의 정적 이미지를 사용합니다. 향후 자체 에셋 폴더로 교체할 수 있도록 UI에서 한 지점에서 생성합니다.
+- `src/data/` : 포켓몬, 타입, 스토리 데이터
+- `src/core/` : 게임 상태와 런타임
+- `src/systems/` : 생산, 조건, 효과, 포탈, 저장 시스템
+- `src/ui/` : 화면 렌더링
+- `tests/` : 핵심 시스템 테스트
