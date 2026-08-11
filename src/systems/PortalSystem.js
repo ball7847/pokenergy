@@ -49,8 +49,15 @@ export class PortalSystem {
     const pokemon = validation.candidates[index];
     const isNew = !state.pokemon.discovered[pokemon.id];
 
-    state.pokemon.counts[pokemon.id] = (state.pokemon.counts[pokemon.id] ?? 0) + 1;
+    const nextCount = (state.pokemon.counts[pokemon.id] ?? 0) + 1;
+    state.pokemon.counts[pokemon.id] = nextCount;
     state.pokemon.discovered[pokemon.id] = true;
+
+    const record = state.pokemon.records[pokemon.id] ?? { discoveredAt: null, maxCount: 0 };
+    if (isNew) record.discoveredAt = now;
+    record.maxCount = Math.max(record.maxCount ?? 0, nextCount);
+    state.pokemon.records[pokemon.id] = record;
+
     state.portal.cooldownUntil = now + this.getCooldownSeconds(state) * 1000;
     state.meta.updatedAt = now;
 

@@ -14,20 +14,44 @@ import { UnlockSystem } from './systems/UnlockSystem.js';
 import { SaveSystem } from './systems/SaveSystem.js';
 import { AppView } from './ui/AppView.js';
 
-const store = new GameStore(createInitialState());
+const saveSystem = new SaveSystem();
+const savedState = safeLoad(saveSystem) ?? createInitialState();
+const store = new GameStore(savedState);
 const conditionSystem = new ConditionSystem(createConditionRegistry(), POKEMON_DATA);
 const effectSystem = new EffectSystem(createEffectRegistry(), POKEMON_DATA);
 const productionSystem = new ProductionSystem({ pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES, effectSystem });
 const portalSystem = new PortalSystem({ conditionSystem, effectSystem, productionSystem, pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES });
 const unlockSystem = new UnlockSystem(effectSystem);
-const saveSystem = new SaveSystem();
+unlockSystem.recalculate(savedState);
 
-const game = new Game({ store, productionSystem, portalSystem, unlockSystem, saveSystem, config: GAME_CONFIG });
-const view = new AppView({ root: document.querySelector('#app'), game, store, pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES });
+const game = new Game({
+  store,
+  productionSystem,
+  portalSystem,
+  unlockSystem,
+  saveSystem,
+  config: GAME_CONFIG,
+  createInitialState,
+});
+
+const view = new AppView({
+  root: document.querySelector('#app'),
+  game,
+  store,
+  pokemonData: POKEMON_DATA,
+  energyTypes: ENERGY_TYPES,
+});
 
 view.mount();
-game.log('메타몽 1마리와 함께 시작합니다.');
 game.start();
 
-// 개발자 콘솔에서 시스템을 확인할 수 있게 최소한만 노출.
 window.pokenergy = { game, store, systems: { conditionSystem, effectSystem, productionSystem, portalSystem, unlockSystem } };
+
+function safeLoad(system) {
+  try {
+    return system.load();
+  } catch (error) {
+    console.error('저장 데이터 불러오기 실패:', error);
+    return null;
+  }
+}

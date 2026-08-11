@@ -1,20 +1,32 @@
+import { INTRO_LOG_LINES } from '../data/story.js';
+
 export class Game {
-  constructor({ store, productionSystem, portalSystem, unlockSystem, saveSystem, config }) {
-    Object.assign(this, { store, productionSystem, portalSystem, unlockSystem, saveSystem, config });
+  constructor({ store, productionSystem, portalSystem, unlockSystem, saveSystem, config, createInitialState }) {
+    Object.assign(this, { store, productionSystem, portalSystem, unlockSystem, saveSystem, config, createInitialState });
     this.timer = null;
     this.autosaveTimer = null;
+    this.introTimer = null;
   }
 
   start() {
-    this.stop();
+    this.stopRuntimeTimers();
     this.timer = setInterval(() => this.tick(), this.config.tickMs);
     this.autosaveTimer = setInterval(() => this.save(), this.config.autosaveMs);
+    this.resumeIntro();
     this.store.notify();
   }
 
   stop() {
+    this.stopRuntimeTimers();
+    if (this.introTimer) clearTimeout(this.introTimer);
+    this.introTimer = null;
+  }
+
+  stopRuntimeTimers() {
     if (this.timer) clearInterval(this.timer);
     if (this.autosaveTimer) clearInterval(this.autosaveTimer);
+    this.timer = null;
+    this.autosaveTimer = null;
   }
 
   tick(now = Date.now()) {
@@ -34,11 +46,15 @@ export class Game {
     let result;
     this.store.mutate(state => {
       result = this.portalSystem.summon(state);
-      if (result.ok) {
-        this.unlockSystem.recalculate(state);
-        this.log(`${result.isNew ? '★ 신규 발견' : '소환'}: ${result.pokemon.name} · 후보 ${result.candidateCount}종`);
-        if (result.isNew) {
-          for (const effect of result.pokemon.effects ?? []) this.log(`효과 해금: ${effect.label ?? effect.type}`);
+      if (!result.ok) return;
+
+      this.unlockSystem.recalculate(state);
+      this.addLog('general', `포탈에서 ${result.pokemon.name}이(가) 나타났다.`);
+
+      if (result.isNew) {
+        this.addLog('important', `새로운 포켓몬 발견: ${result.pokemon.name}`);
+        for (const effect of result.pokemon.effects ?? []) {
+          this.addLog('important', `새로운 능력 해금: ${effect.label ?? effect.type}`);
         }
       }
     }, { notify: false });
@@ -46,13 +62,16 @@ export class Game {
     return result;
   }
 
-  log(message) {
+  addLog(kind, message, at = Date.now()) {
     const state = this.store.getState();
-    state.logs.unshift({ message, at: Date.now() });
-    state.logs = state.logs.slice(0, 100);
+    state.logs.unshift({ kind, message, at });
+    state.logs = state.logs.slice(0, 500);
   }
 
-  save() { this.saveSystem.save(this.store.getState()); }
+  save() {
+    this.saveSystem.save(this.store.getState());
+    this.store.notify();
+  }
 
   load() {
     const loaded = this.saveSystem.load();
@@ -61,6 +80,50 @@ export class Game {
     this.store.replace(loaded);
     this.productionSystem.invalidate();
     this.unlockSystem.recalculate(loaded);
+    this.resumeIntro();
     return true;
+  }
+
+  reset() {
+    this.saveSystem.clear();
+    if (this.introTimer) clearTimeout(this.introTimer);
+    this.introTimer = null;
+    const fresh = this.createInitialState();
+    this.productionSystem.invalidate();
+    this.unlockSystem.recalculate(fresh);
+    this.store.replace(fresh);
+    this.resumeIntro();
+  }
+
+  resumeIntro() {
+    if (this.introTimer) clearTimeout(this.introTimer);
+    this.introTimer = null;
+
+    const state = this.store.getState();
+    if (state.story?.introComplete) return;
+
+    const emitNext = () => {
+      const current = this.store.getState();
+      const index = current.story.introNextIndex ?? 0;
+      if (index >= INTRO_LOG_LINES.length) {
+        current.story.introComplete = true;
+        this.store.notify();
+        this.introTimer = null;
+        return;
+      }
+
+      this.addLog('important', INTRO_LOG_LINES[index]);
+      current.story.introNextIndex = index + 1;
+      if (current.story.introNextIndex >= INTRO_LOG_LINES.length) current.story.introComplete = true;
+      this.store.notify();
+
+      if (!current.story.introComplete) {
+        this.introTimer = setTimeout(emitNext, this.config.story.introLineDelayMs);
+      } else {
+        this.introTimer = null;
+      }
+    };
+
+    emitNext();
   }
 }
