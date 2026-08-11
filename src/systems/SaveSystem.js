@@ -88,8 +88,25 @@ export class SaveSystem {
     migrated.settings.pokemonAbilityLogs ??= true;
     migrated.runtime.lastProductionAt ??= Date.now();
 
-    // v8부터 과부하 플래그를 폐기하고 누적 소환 수에 따른 쿨타임 단계로 계산한다.
+    // v8부터 과부하 플래그를 폐기한다.
     if (version < 8) delete migrated.portal.overloaded;
+
+    // v9부터 평생 누적 소환 수와 쿨타임 단계 진행 수를 분리한다.
+    // v8에서는 과거 세이브의 누적 개체 수가 그대로 쿨타임 단계에 사용되어
+    // 업데이트 직후부터 10초 단계가 되는 문제가 있었으므로, 기존 세이브는 0부터 시작한다.
+    if (version < 9) {
+      migrated.portal.cooldownProgressSummons = 0;
+      migrated.portal.cooldownUntil = 0;
+    }
+    migrated.portal.cooldownProgressSummons ??= 0;
+
+    // v10: 초기화/포탈 진행 필드를 명시적으로 정규화한다.
+    // 값이 없는 저장만 보완하며 정상적인 기존 진행도는 유지한다.
+    if (version < 10) {
+      migrated.portal.totalSummons = Math.max(0, Number(migrated.portal.totalSummons) || 0);
+      migrated.portal.cooldownProgressSummons = Math.max(0, Number(migrated.portal.cooldownProgressSummons) || 0);
+      migrated.portal.cooldownUntil = Math.max(0, Number(migrated.portal.cooldownUntil) || 0);
+    }
 
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;

@@ -16,15 +16,19 @@ export class ConditionSystem {
   matches(pokemon, state, portalInput) {
     const ctx = this.createContext(state, portalInput);
 
-    // 기존 conditions는 한 그룹 내 AND 조건이다.
-    // conditionGroups가 있으면 각 그룹은 AND, 그룹끼리는 OR로 판정한다.
-    const groups = pokemon.conditionGroups?.length
-      ? pokemon.conditionGroups
-      : [pokemon.conditions ?? []];
+    // 단순 conditions는 기본 AND. conditionMode: 'any'면 조건끼리 OR.
+    // conditionGroups는 복합 조건용으로, 각 그룹 내부는 AND / 그룹끼리는 OR이다.
+    if (pokemon.conditionGroups?.length) {
+      return pokemon.conditionGroups.some(group =>
+        group.every(condition => this.registry.run(condition.type, condition, ctx))
+      );
+    }
 
-    return groups.some(group =>
-      group.every(condition => this.registry.run(condition.type, condition, ctx))
-    );
+    const conditions = pokemon.conditions ?? [];
+    if (pokemon.conditionMode === 'any') {
+      return conditions.some(condition => this.registry.run(condition.type, condition, ctx));
+    }
+    return conditions.every(condition => this.registry.run(condition.type, condition, ctx));
   }
 
   getCandidates(state, portalInput) {

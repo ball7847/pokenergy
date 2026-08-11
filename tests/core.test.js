@@ -11,6 +11,11 @@ import { ProductionSystem } from '../src/systems/ProductionSystem.js';
 import { PokemonSystem } from '../src/systems/PokemonSystem.js';
 import { PortalSystem } from '../src/systems/PortalSystem.js';
 import { SaveSystem } from '../src/systems/SaveSystem.js';
+import { GameStore } from '../src/core/GameStore.js';
+import { Game } from '../src/core/Game.js';
+import { UnlockSystem } from '../src/systems/UnlockSystem.js';
+import { GAME_CONFIG } from '../src/config/gameConfig.js';
+import { formatEnergyNumber } from '../src/utils/format.js';
 import { attachJosa, chooseJosa, hasBatchim } from '../src/utils/korean.js';
 
 function createSystems(random = () => 0) {
@@ -65,17 +70,17 @@ test('단일타입 포켓몬은 1초마다 보유 수만큼 생산한다', () =>
   assert.equal(state.resources.energy.normal, 1);
 });
 
-test('꼬렛 의욕은 매초 10% 판정 성공 시 꼬렛 수만큼 노말에너지를 추가한다', () => {
+test('꼬렛 꼬리흔들기는 매초 1% 판정 성공 시 꼬렛 수의 10배만큼 노말에너지를 추가한다', () => {
   const state = createInitialState();
   state.pokemon.counts.rattata = 5;
   state.pokemon.discovered.rattata = true;
-  const { productionSystem } = createSystems(() => 0.05);
+  const { productionSystem } = createSystems(() => 0.005);
   productionSystem.produceOneSecond(state);
-  // 기본 꼬렛 5 + 의욕 추가 5
-  assert.equal(state.resources.energy.normal, 10);
+  // 기본 꼬렛 5 + 꼬리흔들기 추가 50
+  assert.equal(state.resources.energy.normal, 55);
 });
 
-test('꼬렛 의욕은 판정 실패 시 기본 생산만 적용한다', () => {
+test('꼬렛 꼬리흔들기는 판정 실패 시 기본 생산만 적용한다', () => {
   const state = createInitialState();
   state.pokemon.counts.rattata = 5;
   state.pokemon.discovered.rattata = true;
@@ -127,29 +132,30 @@ test('v4 저장은 최신 버전에서 기존 메타몽 재지급 방지 플래�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.story.dittoGranted, true);
-  assert.equal(loaded.meta.saveVersion, 8);
+  assert.equal(loaded.meta.saveVersion, 10);
 });
 
 
 test('포탈 쿨타임은 0~49회 2.5초, 50~99회 5초, 100회 이상 10초다', () => {
   const state = createInitialState();
   const { portalSystem } = createSystems();
-  state.portal.totalSummons = 0;
+  state.portal.cooldownProgressSummons = 0;
   assert.equal(portalSystem.getCooldownSeconds(state), 2.5);
-  state.portal.totalSummons = 49;
+  state.portal.cooldownProgressSummons = 49;
   assert.equal(portalSystem.getCooldownSeconds(state), 2.5);
-  state.portal.totalSummons = 50;
+  state.portal.cooldownProgressSummons = 50;
   assert.equal(portalSystem.getCooldownSeconds(state), 5);
-  state.portal.totalSummons = 99;
+  state.portal.cooldownProgressSummons = 99;
   assert.equal(portalSystem.getCooldownSeconds(state), 5);
-  state.portal.totalSummons = 100;
+  state.portal.cooldownProgressSummons = 100;
   assert.equal(portalSystem.getCooldownSeconds(state), 10);
 });
 
 test('50번째와 100번째 소환에서 각각 쿨타임 단계 이벤트가 발생한다', () => {
   const state = createInitialState();
   const { portalSystem } = createSystems(() => 0);
-  state.portal.totalSummons = 49;
+  state.portal.totalSummons = 300;
+  state.portal.cooldownProgressSummons = 49;
   state.resources.energy.normal = 20;
   state.portal.input.normal = 10;
   let result = portalSystem.summon(state, 1_000);
@@ -158,7 +164,7 @@ test('50번째와 100번째 소환에서 각각 쿨타임 단계 이벤트가 �
   assert.equal(state.portal.cooldownUntil, 6_000);
 
   state.portal.cooldownUntil = 0;
-  state.portal.totalSummons = 99;
+  state.portal.cooldownProgressSummons = 99;
   result = portalSystem.summon(state, 10_000);
   assert.equal(result.cooldownTierTriggered.minSummons, 100);
   assert.equal(result.cooldownTierTriggered.seconds, 10);
@@ -182,7 +188,7 @@ test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.portal.totalSummons, 10);
-    assert.equal(loaded.meta.saveVersion, 8);
+    assert.equal(loaded.meta.saveVersion, 10);
 });
 
 
@@ -209,15 +215,15 @@ test('이상해씨 발견 후 메타몽은 풀에너지를 추가 생산한다',
   assert.equal(production.poison, 1);
 });
 
-test('꼬렛 의욕 발동 시 능력 이벤트가 생성된다', () => {
+test('꼬렛 꼬리흔들기 발동 시 능력 이벤트가 생성된다', () => {
   const state = createInitialState();
   state.pokemon.counts.rattata = 4;
   state.pokemon.discovered.rattata = true;
-  const { productionSystem } = createSystems(() => 0.01);
+  const { productionSystem } = createSystems(() => 0.005);
   const result = productionSystem.produceOneSecond(state);
   assert.equal(result.abilityEvents.length, 1);
-  assert.equal(result.abilityEvents[0].abilityName, '의욕');
-  assert.equal(result.abilityEvents[0].amount, 4);
+  assert.equal(result.abilityEvents[0].abilityName, '꼬리흔들기');
+  assert.equal(result.abilityEvents[0].amount, 40);
 });
 
 test('기존 저장은 포켓몬 능력 로그 표시가 기본 ON으로 마이그레이션된다', () => {
@@ -232,7 +238,7 @@ test('기존 저장은 포켓몬 능력 로그 표시가 기본 ON으로 마이�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.settings.pokemonAbilityLogs, true);
-  assert.equal(loaded.meta.saveVersion, 8);
+  assert.equal(loaded.meta.saveVersion, 10);
 });
 
 
@@ -251,7 +257,7 @@ test('이상해씨/파이리/꼬부기는 노말 1000 또는 자기 타입 100�
   }
 });
 
-test('피카츄는 노말 정확히 25 또는 전기 100 이상에서 등장한다', () => {
+test('피카츄 조건은 AND가 아니라 OR: 노말 정확히 25 또는 전기 100 이상에서 각각 등장한다', () => {
   const { conditionSystem } = createSystems();
   const state1 = createInitialState();
   state1.portal.input.normal = 25;
@@ -297,5 +303,108 @@ test('v7 저장의 폐기된 overloaded 플래그는 v8 마이그레이션에서
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal('overloaded' in loaded.portal, false);
-  assert.equal(loaded.meta.saveVersion, 8);
+  assert.equal(loaded.meta.saveVersion, 10);
+});
+
+
+test('신규 게임은 평생 누적 소환 수와 무관하게 쿨타임 진행도 0에서 2.5초로 시작한다', () => {
+  const state = createInitialState();
+  state.portal.totalSummons = 999;
+  state.portal.cooldownProgressSummons = 0;
+  const { portalSystem } = createSystems();
+  assert.equal(portalSystem.getCooldownSeconds(state), 2.5);
+});
+
+test('v8 기존 저장은 v9에서 쿨타임 단계 진행도를 0으로 초기화한다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 8;
+  legacy.portal.totalSummons = 250;
+  delete legacy.portal.cooldownProgressSummons;
+  legacy.portal.cooldownUntil = Date.now() + 10_000;
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.equal(loaded.portal.totalSummons, 250);
+  assert.equal(loaded.portal.cooldownProgressSummons, 0);
+  assert.equal(loaded.portal.cooldownUntil, 0);
+  assert.equal(loaded.meta.saveVersion, 10);
+});
+
+
+test('에너지 표시는 소수점 둘째 자리까지 표시하고 불필요한 0을 제거한다', () => {
+  assert.equal(formatEnergyNumber(12), '12');
+  assert.equal(formatEnergyNumber(12.5), '12.5');
+  assert.equal(formatEnergyNumber(12.345), '12.35');
+  assert.equal(formatEnergyNumber(999999.999), '1e6');
+});
+
+test('에너지 100만 이상은 과학적 표기법을 사용한다', () => {
+  assert.equal(formatEnergyNumber(1_000_000), '1e6');
+  assert.equal(formatEnergyNumber(1_230_000), '1.23e6');
+  assert.equal(formatEnergyNumber(12_000_000), '1.2e7');
+});
+
+test('레트라는 꼬렛 10마리 이상 AND 노말에너지 1000 이상일 때만 후보가 된다', () => {
+  const { conditionSystem } = createSystems();
+  const state = createInitialState();
+  state.pokemon.counts.rattata = 10;
+  state.portal.input.normal = 999;
+  let ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('raticate'), false);
+
+  state.portal.input.normal = 1000;
+  ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('raticate'), true);
+
+  state.pokemon.counts.rattata = 9;
+  ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  assert.equal(ids.includes('raticate'), false);
+});
+
+test('레트라 분노의 앞니는 1% 성공 시 해당 초 기본 노말 생산량의 50%를 추가한다', () => {
+  const state = createInitialState();
+  state.pokemon.counts.ditto = 4;
+  state.pokemon.discovered.ditto = true;
+  state.pokemon.counts.raticate = 1;
+  state.pokemon.discovered.raticate = true;
+  const { productionSystem } = createSystems(() => 0.005);
+  const result = productionSystem.produceOneSecond(state);
+  // 기본 노말 생산 5(메타몽4 + 레트라1), 추가 2.5
+  assert.equal(state.resources.energy.normal, 7.5);
+  assert.equal(result.abilityEvents.length, 1);
+  assert.equal(result.abilityEvents[0].abilityName, '분노의 앞니');
+  assert.equal(result.abilityEvents[0].amount, 2.5);
+});
+
+test('모든 진행 상황 초기화는 포탈 쿨타임 단계 진행도까지 0으로 되돌린다', () => {
+  const state = createInitialState();
+  state.portal.totalSummons = 123;
+  state.portal.cooldownProgressSummons = 123;
+  state.portal.cooldownUntil = Date.now() + 9999;
+  const store = new GameStore(state);
+  const { effectSystem, productionSystem, pokemonSystem, portalSystem } = createSystems(() => 0.99);
+  const unlockSystem = new UnlockSystem(effectSystem);
+  const storage = {
+    value: null,
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const saveSystem = new SaveSystem(storage);
+  const game = new Game({
+    store, productionSystem, portalSystem, pokemonSystem, unlockSystem, saveSystem,
+    config: GAME_CONFIG, createInitialState,
+  });
+  game.reset();
+  const fresh = store.getState();
+  assert.equal(fresh.portal.totalSummons, 0);
+  assert.equal(fresh.portal.cooldownProgressSummons, 0);
+  assert.equal(fresh.portal.cooldownUntil, 0);
+  assert.equal(fresh.resources.energy.normal, 0);
+  assert.equal(fresh.pokemon.counts.rattata, 0);
+  game.stop();
 });

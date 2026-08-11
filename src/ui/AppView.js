@@ -1,5 +1,5 @@
 import { TYPE_LABELS } from '../data/types.js';
-import { formatNumber } from '../utils/format.js';
+import { formatNumber, formatEnergyNumber } from '../utils/format.js';
 
 const TAB_LABELS = {
   portal: '포탈',
@@ -191,8 +191,8 @@ export class AppView {
     bar.innerHTML = this.energyTypes.map(type => `
       <article class="energy-item type-${type}" title="${TYPE_LABELS[type]}에너지">
         <span class="energy-name">${TYPE_LABELS[type]}</span>
-        <strong>${formatNumber(state.resources.energy[type] ?? 0)}</strong>
-        <small>+${formatNumber(production[type] ?? 0)}/s</small>
+        <strong>${formatEnergyNumber(state.resources.energy[type] ?? 0)}</strong>
+        <small>+${formatEnergyNumber(production[type] ?? 0)}/s</small>
       </article>
     `).join('');
   }
@@ -242,12 +242,12 @@ export class AppView {
                 <span class="type-dot"></span>
                 <span class="input-type-name">${TYPE_LABELS[type]}</span>
                 <input type="number" min="0" step="1" inputmode="numeric" data-energy-input="${type}" value="${state.portal.input[type] ?? 0}">
-                <small data-view="energy-owned" data-energy-type="${type}">/ ${formatNumber(state.resources.energy[type] ?? 0)}</small>
+                <small data-view="energy-owned" data-energy-type="${type}">/ ${formatEnergyNumber(state.resources.energy[type] ?? 0)}</small>
               </label>
             `).join('')}
           </div>
           <div class="input-footer">
-            <span>총 투입량</span><strong data-view="total-input">${formatNumber(totalInput)}</strong>
+            <span>총 투입량</span><strong data-view="total-input">${formatEnergyNumber(totalInput)}</strong>
           </div>
         </section>
 
@@ -340,11 +340,11 @@ export class AppView {
     if (usedTypesEl) usedTypesEl.textContent = `${usedTypes} / ${state.unlocks.maxEnergyTypes} 타입`;
 
     const totalInputEl = panel.querySelector('[data-view="total-input"]');
-    if (totalInputEl) totalInputEl.textContent = formatNumber(totalInput);
+    if (totalInputEl) totalInputEl.textContent = formatEnergyNumber(totalInput);
 
     for (const type of this.energyTypes) {
       const owned = panel.querySelector(`[data-view="energy-owned"][data-energy-type="${type}"]`);
-      if (owned) owned.textContent = `/ ${formatNumber(state.resources.energy[type] ?? 0)}`;
+      if (owned) owned.textContent = `/ ${formatEnergyNumber(state.resources.energy[type] ?? 0)}`;
     }
 
     const button = panel.querySelector('[data-action="summon"]');

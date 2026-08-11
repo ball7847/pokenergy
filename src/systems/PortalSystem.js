@@ -12,7 +12,7 @@ export class PortalSystem {
   }
 
   getBaseCooldownSeconds(state) {
-    const totalSummons = state.portal.totalSummons ?? 0;
+    const totalSummons = state.portal.cooldownProgressSummons ?? 0;
     const tiers = GAME_CONFIG.portal.cooldownTiers;
     let seconds = tiers[0]?.seconds ?? 2.5;
     for (const tier of tiers) {
@@ -56,9 +56,15 @@ export class PortalSystem {
     const pokemon = validation.candidates[index];
     const acquisition = this.pokemonSystem.acquire(state, pokemon.id, { now });
 
-    const previousSummons = state.portal.totalSummons ?? 0;
-    state.portal.totalSummons = previousSummons + 1;
-    const cooldownTierTriggered = this.getCooldownTierTrigger(previousSummons, state.portal.totalSummons);
+    const previousTotalSummons = state.portal.totalSummons ?? 0;
+    state.portal.totalSummons = previousTotalSummons + 1;
+
+    const previousCooldownProgress = state.portal.cooldownProgressSummons ?? 0;
+    state.portal.cooldownProgressSummons = previousCooldownProgress + 1;
+    const cooldownTierTriggered = this.getCooldownTierTrigger(
+      previousCooldownProgress,
+      state.portal.cooldownProgressSummons,
+    );
 
     state.portal.cooldownUntil = now + this.getCooldownSeconds(state) * 1000;
     return {

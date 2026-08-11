@@ -22,6 +22,7 @@ export function createInitialState(now = Date.now()) {
       input: Object.fromEntries(ENERGY_TYPES.map(type => [type, 0])),
       cooldownUntil: 0,
       totalSummons: 0,
+      cooldownProgressSummons: 0,
       auto: { enabled: false },
     },
     unlocks: { maxEnergyTypes: GAME_CONFIG.portal.startingMaxEnergyTypes, autoSummon: false },

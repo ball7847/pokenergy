@@ -6,3 +6,29 @@ export function formatNumber(value) {
   }
   return Math.floor(value).toLocaleString('ko-KR');
 }
+
+/**
+ * 에너지 전용 표시 규칙.
+ * - 소수점 둘째 자리까지만 표시하고 불필요한 0은 제거한다.
+ * - 절댓값 1,000,000 이상은 1.23e6 형태의 과학적 표기법을 사용한다.
+ */
+export function formatEnergyNumber(value) {
+  if (!Number.isFinite(value)) return '0';
+  const rounded = roundTwoDecimals(value);
+  if (Math.abs(rounded) >= 1_000_000) {
+    const exponent = Math.floor(Math.log10(Math.abs(rounded)));
+    const coefficient = rounded / (10 ** exponent);
+    return `${trimTwoDecimals(coefficient)}e${exponent}`;
+  }
+  return trimTwoDecimals(rounded);
+}
+
+function roundTwoDecimals(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function trimTwoDecimals(value) {
+  const rounded = roundTwoDecimals(value);
+  if (Object.is(rounded, -0)) return '0';
+  return rounded.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}

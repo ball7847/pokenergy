@@ -36,9 +36,11 @@ export class ProductionSystem {
 
   /** 정확히 1초 생산분을 계산하고 상태에 반영한다. 확률형 능력도 이 시점에 1회 판정한다. */
   produceOneSecond(state) {
-    const gains = { ...this.getProduction(state) };
+    const baseGains = { ...this.getProduction(state) };
+    const gains = { ...baseGains };
     const abilityEvents = [];
     this.effectSystem.runHook('production:second_tick', state, {
+      baseGains,
       gains,
       energyTypes: this.energyTypes,
       random: this.random,

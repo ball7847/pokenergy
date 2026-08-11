@@ -1,6 +1,7 @@
 import { INTRO_LOG_LINES } from '../data/story.js';
 import { attachJosa } from '../utils/korean.js';
 import { TYPE_LABELS } from '../data/types.js';
+import { formatEnergyNumber } from '../utils/format.js';
 
 export class Game {
   constructor({ store, productionSystem, portalSystem, pokemonSystem, unlockSystem, saveSystem, config, createInitialState }) {
@@ -47,7 +48,7 @@ export class Game {
         for (const event of abilityEvents) {
           const pokemon = this.pokemonSystem.byId.get(event.pokemonId);
           if (!pokemon) continue;
-          this.addLog('general', `${pokemon.name}의 [${event.abilityName}] 발동! ${TYPE_LABELS[event.energy]}에너지 +${event.amount} 획득`);
+          this.addLog('general', `${pokemon.name}의 [${event.abilityName}] 발동! ${TYPE_LABELS[event.energy]}에너지 +${formatEnergyNumber(event.amount)} 획득`);
         }
       }
       state.runtime.lastProductionAt += 1000;
@@ -72,7 +73,7 @@ export class Game {
       result = this.portalSystem.summon(state);
       if (!result.ok) return;
       this.unlockSystem.recalculate(state);
-      this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다. (총 ${result.count}마리)`);
+      this.logPokemonAppearance(result.pokemon, result.count);
       if (result.isNew) this.logNewPokemonEffects(result.pokemon);
       if (result.cooldownTierTriggered) {
         const { minSummons, seconds } = result.cooldownTierTriggered;
@@ -81,6 +82,10 @@ export class Game {
     }, { notify: false });
     this.store.notify();
     return result;
+  }
+
+  logPokemonAppearance(pokemon, count) {
+    this.addLog('general', `포탈에서 ${attachJosa(pokemon.name, '이/가')} 나타났다! (총 ${count}마리)`);
   }
 
   logNewPokemonEffects(pokemon) {
@@ -114,13 +119,26 @@ export class Game {
   }
 
   reset() {
+    // 진행 초기화는 런타임 타이머/세이브/게임 상태/캐시를 모두 새 게임 상태로 되돌린다.
+    this.stopRuntimeTimers();
     this.saveSystem.clear();
     if (this.introTimer) clearTimeout(this.introTimer);
     this.introTimer = null;
-    const fresh = this.createInitialState();
+
+    const fresh = this.createInitialState(Date.now());
+    // 방어적으로 포탈 진행 관련 값도 명시 초기화한다.
+    fresh.portal.cooldownUntil = 0;
+    fresh.portal.totalSummons = 0;
+    fresh.portal.cooldownProgressSummons = 0;
+
     this.productionSystem.invalidate();
     this.unlockSystem.recalculate(fresh);
     this.store.replace(fresh);
+
+    // 초기화 직후 새 상태가 다음 자동저장 기준이 되도록 즉시 저장하고 런타임을 재시작한다.
+    this.saveSystem.save(fresh);
+    this.timer = setInterval(() => this.tick(), this.config.tickMs);
+    this.autosaveTimer = setInterval(() => this.save(), this.config.autosaveMs);
     this.resumeIntro();
   }
 
@@ -143,7 +161,7 @@ export class Game {
       current.story.dittoGranted = true;
       current.story.introComplete = true;
       this.unlockSystem.recalculate(current);
-      this.addLog('general', `${attachJosa(acquisition.pokemon.name, '을/를')} 획득했다. (총 ${acquisition.count}마리)`);
+      this.logPokemonAppearance(acquisition.pokemon, acquisition.count);
       if (acquisition.isNew) this.logNewPokemonEffects(acquisition.pokemon);
       this.store.notify();
       this.introTimer = null;

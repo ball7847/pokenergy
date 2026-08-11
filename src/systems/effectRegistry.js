@@ -44,6 +44,20 @@ export function createEffectRegistry() {
     });
   });
 
+  registry.register('second_tick_chance_production_percent', (effect, ctx) => {
+    if (ctx.hook !== 'production:second_tick') return;
+    if (ctx.random() >= effect.chance) return;
+    const amount = (ctx.baseGains?.[effect.energy] ?? 0) * (effect.value ?? 0);
+    if (amount <= 0) return;
+    ctx.gains[effect.energy] = (ctx.gains[effect.energy] ?? 0) + amount;
+    ctx.abilityEvents?.push({
+      pokemonId: effect.pokemon,
+      abilityName: effect.abilityName ?? effect.type,
+      energy: effect.energy,
+      amount,
+    });
+  });
+
   registry.register('cooldown_flat', (effect, ctx) => {
     if (ctx.hook !== 'portal:cooldown') return;
     ctx.value -= effect.value;
