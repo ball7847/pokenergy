@@ -1,6 +1,6 @@
 export const GAME_CONFIG = Object.freeze({
   saveKey: 'pokenergy_save',
-  saveVersion: 10,
+  saveVersion: 11,
   autosaveMs: 10_000,
   tickMs: 100,
   maxTickSeconds: 2,
@@ -13,6 +13,11 @@ export const GAME_CONFIG = Object.freeze({
     ],
     minCooldownSeconds: 1,
     startingMaxEnergyTypes: 1,
+    energyTypeUnlockTiers: [
+      { unlockedTypes: 6, maxEnergyTypes: 2 },
+      { unlockedTypes: 12, maxEnergyTypes: 3 },
+      { unlockedTypes: 18, maxEnergyTypes: 4 },
+    ],
   },
 
   story: {

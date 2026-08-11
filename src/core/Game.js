@@ -44,6 +44,10 @@ export class Game {
     );
     for (let i = 0; i < elapsedWholeSeconds; i += 1) {
       const { abilityEvents } = this.productionSystem.produceOneSecond(state);
+      const portalUnlockEvents = this.unlockSystem.updateEnergyUnlocks(state);
+      for (const event of portalUnlockEvents) {
+        this.addLog('important', `포탈이 강화되었다! 이제 에너지를 최대 ${event.maxEnergyTypes}종까지 동시에 투입할 수 있다.`);
+      }
       if (state.settings?.pokemonAbilityLogs !== false) {
         for (const event of abilityEvents) {
           const pokemon = this.pokemonSystem.byId.get(event.pokemonId);
@@ -113,7 +117,7 @@ export class Game {
     loaded.runtime.lastProductionAt = Date.now();
     this.store.replace(loaded);
     this.productionSystem.invalidate();
-    this.unlockSystem.recalculate(loaded);
+    this.unlockSystem.updateEnergyUnlocks(loaded);
     this.resumeIntro();
     return true;
   }

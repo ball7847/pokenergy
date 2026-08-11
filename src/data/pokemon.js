@@ -5,7 +5,7 @@
 export const POKEMON_DATA = [
   { id: 'ditto', dex: 132, name: '메타몽', types: ['normal'], conditions: [
     { type: 'energy_type_count', mode: 'exact', value: 1 },
-    { type: 'energy_min', energy: 'normal', value: 10 },
+    { type: 'total_energy_min', value: 10 },
   ]},
   { id: 'rattata', dex: 19, name: '꼬렛', types: ['normal'], conditions: [
     { type: 'energy_min', energy: 'normal', value: 19 },

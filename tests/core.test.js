@@ -34,14 +34,20 @@ test('새 게임은 포켓몬 없이 시작한다', () => {
   assert.equal(state.story.dittoGranted, false);
 });
 
-test('메타몽은 노말만 10 이상 투입할 때 후보가 된다', () => {
-  const state = createInitialState();
+test('메타몽은 정확히 1종의 에너지를 총 10 이상 투입하면 후보가 된다', () => {
   const { conditionSystem } = createSystems();
-  state.portal.input.normal = 10;
-  let ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
-  assert.deepEqual(ids, ['ditto']);
-  state.portal.input.fire = 1;
-  ids = conditionSystem.getCandidates(state, state.portal.input).map(p => p.id);
+  const state1 = createInitialState();
+  state1.portal.input.normal = 10;
+  let ids = conditionSystem.getCandidates(state1, state1.portal.input).map(p => p.id);
+  assert.equal(ids.includes('ditto'), true);
+
+  const state2 = createInitialState();
+  state2.portal.input.fire = 10;
+  ids = conditionSystem.getCandidates(state2, state2.portal.input).map(p => p.id);
+  assert.equal(ids.includes('ditto'), true);
+
+  state2.portal.input.water = 1;
+  ids = conditionSystem.getCandidates(state2, state2.portal.input).map(p => p.id);
   assert.equal(ids.includes('ditto'), false);
 });
 
@@ -132,7 +138,7 @@ test('v4 저장은 최신 버전에서 기존 메타몽 재지급 방지 플래�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.story.dittoGranted, true);
-  assert.equal(loaded.meta.saveVersion, 10);
+  assert.equal(loaded.meta.saveVersion, 11);
 });
 
 
@@ -188,7 +194,7 @@ test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.portal.totalSummons, 10);
-    assert.equal(loaded.meta.saveVersion, 10);
+    assert.equal(loaded.meta.saveVersion, 11);
 });
 
 
@@ -238,7 +244,7 @@ test('기존 저장은 포켓몬 능력 로그 표시가 기본 ON으로 마이�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.settings.pokemonAbilityLogs, true);
-  assert.equal(loaded.meta.saveVersion, 10);
+  assert.equal(loaded.meta.saveVersion, 11);
 });
 
 
@@ -303,7 +309,7 @@ test('v7 저장의 폐기된 overloaded 플래그는 v8 마이그레이션에서
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal('overloaded' in loaded.portal, false);
-  assert.equal(loaded.meta.saveVersion, 10);
+  assert.equal(loaded.meta.saveVersion, 11);
 });
 
 
@@ -331,7 +337,7 @@ test('v8 기존 저장은 v9에서 쿨타임 단계 진행도를 0으로 초기�
   assert.equal(loaded.portal.totalSummons, 250);
   assert.equal(loaded.portal.cooldownProgressSummons, 0);
   assert.equal(loaded.portal.cooldownUntil, 0);
-  assert.equal(loaded.meta.saveVersion, 10);
+  assert.equal(loaded.meta.saveVersion, 11);
 });
 
 
@@ -441,4 +447,55 @@ test('도감 등장 조건 문구는 AND를 +, OR를 OR로 표시한다', () => 
   assert.equal(pokemonConditionsToText(raticate, POKEMON_DATA), '꼬렛 10마리 이상 + 노말에너지 200 이상');
   assert.equal(pokemonConditionsToText(pikachu, POKEMON_DATA), '노말에너지 정확히 25 OR 전기에너지 100 이상');
   assert.equal(pokemonConditionsToText(bulbasaur, POKEMON_DATA), '노말에너지 1000 이상 OR 풀에너지 100 이상');
+});
+
+
+test('에너지 타입은 보유량이 처음 0을 초과하면 영구 해금된다', () => {
+  const state = createInitialState();
+  const { effectSystem } = createSystems();
+  const unlockSystem = new UnlockSystem(effectSystem);
+  state.resources.energy.normal = 1;
+  unlockSystem.updateEnergyUnlocks(state);
+  assert.equal(state.progression.unlockedEnergyTypes.normal, true);
+  state.resources.energy.normal = 0;
+  unlockSystem.updateEnergyUnlocks(state);
+  assert.equal(state.progression.unlockedEnergyTypes.normal, true);
+});
+
+test('해금 에너지 6/12/18종에서 포탈 동시 투입 한도가 2/3/4종으로 강화된다', () => {
+  const state = createInitialState();
+  const { effectSystem } = createSystems();
+  const unlockSystem = new UnlockSystem(effectSystem);
+
+  ENERGY_TYPES.slice(0, 6).forEach(type => { state.resources.energy[type] = 1; });
+  let events = unlockSystem.updateEnergyUnlocks(state);
+  assert.equal(state.unlocks.maxEnergyTypes, 2);
+  assert.deepEqual(events.map(e => e.maxEnergyTypes), [2]);
+
+  ENERGY_TYPES.slice(6, 12).forEach(type => { state.resources.energy[type] = 1; });
+  events = unlockSystem.updateEnergyUnlocks(state);
+  assert.equal(state.unlocks.maxEnergyTypes, 3);
+  assert.deepEqual(events.map(e => e.maxEnergyTypes), [3]);
+
+  ENERGY_TYPES.slice(12, 18).forEach(type => { state.resources.energy[type] = 1; });
+  events = unlockSystem.updateEnergyUnlocks(state);
+  assert.equal(state.unlocks.maxEnergyTypes, 4);
+  assert.deepEqual(events.map(e => e.maxEnergyTypes), [4]);
+});
+
+test('v10 저장은 현재 0초과 에너지를 해금 진행도로 마이그레이션한다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 10;
+  delete legacy.progression;
+  for (const type of ENERGY_TYPES.slice(0, 6)) legacy.resources.energy[type] = 1;
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.equal(Object.values(loaded.progression.unlockedEnergyTypes).filter(Boolean).length, 6);
+  assert.equal(loaded.progression.portalEnergyTier, 1);
+  assert.equal(loaded.meta.saveVersion, 11);
 });

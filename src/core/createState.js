@@ -26,6 +26,10 @@ export function createInitialState(now = Date.now()) {
       auto: { enabled: false },
     },
     unlocks: { maxEnergyTypes: GAME_CONFIG.portal.startingMaxEnergyTypes, autoSummon: false },
+    progression: {
+      unlockedEnergyTypes: Object.fromEntries(ENERGY_TYPES.map(type => [type, false])),
+      portalEnergyTier: 0,
+    },
     story: {
       introNextIndex: 0,
       introComplete: false,

@@ -74,6 +74,20 @@ export class AppView {
         return;
       }
 
+      const quickEnergyButton = event.target.closest('[data-energy-percent]');
+      if (quickEnergyButton) {
+        const type = quickEnergyButton.dataset.energyType;
+        const fraction = Number(quickEnergyButton.dataset.energyPercent);
+        const state = this.store.getState();
+        const owned = Number(state.resources.energy[type]) || 0;
+        const amount = fraction <= 0 ? 0 : owned * fraction;
+        this.game.setPortalInput(type, amount);
+        const input = this.root.querySelector(`[data-energy-input="${type}"]`);
+        if (input) input.value = formatEnergyNumber(amount);
+        this.updatePortalDynamic(this.store.getState());
+        return;
+      }
+
       const summonButton = event.target.closest('[data-action="summon"]');
       if (summonButton) {
         this.game.summon();
@@ -239,12 +253,18 @@ export class AppView {
           </div>
           <div class="portal-input-list">
             ${this.energyTypes.map(type => `
-              <label class="portal-input-row type-${type}">
+              <div class="portal-input-row type-${type}">
                 <span class="type-dot"></span>
                 <span class="input-type-name">${TYPE_LABELS[type]}</span>
-                <input type="number" min="0" step="1" inputmode="numeric" data-energy-input="${type}" value="${state.portal.input[type] ?? 0}">
+                <input type="number" min="0" step="any" inputmode="decimal" aria-label="${TYPE_LABELS[type]}에너지 투입량" data-energy-input="${type}" value="${formatEnergyNumber(state.portal.input[type] ?? 0)}">
                 <small data-view="energy-owned" data-energy-type="${type}">/ ${formatEnergyNumber(state.resources.energy[type] ?? 0)}</small>
-              </label>
+                <div class="energy-quick-buttons">
+                  <button type="button" data-energy-percent="0" data-energy-type="${type}">0</button>
+                  <button type="button" data-energy-percent="0.1" data-energy-type="${type}">10%</button>
+                  <button type="button" data-energy-percent="0.5" data-energy-type="${type}">50%</button>
+                  <button type="button" data-energy-percent="1" data-energy-type="${type}">100%</button>
+                </div>
+              </div>
             `).join('')}
           </div>
           <div class="input-footer">
@@ -532,7 +552,6 @@ export class AppView {
           <div><span>처음 발견한 날짜</span><strong>${record.discoveredAt ? this.formatDateTime(record.discoveredAt) : '이전 버전에서 발견 · 날짜 기록 없음'}</strong></div>
           <div><span>현재 개체 수</span><strong>${formatNumber(state.pokemon.counts[pokemon.id] ?? 0)}</strong></div>
           <div><span>가장 많았던 수</span><strong>${formatNumber(record.maxCount ?? 0)}</strong></div>
-          <div><span>기본 생산</span><strong>${this.baseProductionText(pokemon)}</strong></div>
         </div>
         <div class="ability-box">
           <h3>등장 조건</h3>
@@ -546,9 +565,6 @@ export class AppView {
     `;
   }
 
-  baseProductionText(pokemon) {
-    return pokemon.types.map(type => `${TYPE_LABELS[type]}에너지 +1/s`).join(' · ');
-  }
 
   pokemonSprite(pokemon, large, extraClass = '') {
     const dex = pokemon.dex;

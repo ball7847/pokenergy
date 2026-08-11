@@ -108,6 +108,27 @@ export class SaveSystem {
       migrated.portal.cooldownUntil = Math.max(0, Number(migrated.portal.cooldownUntil) || 0);
     }
 
+
+    // v11부터 에너지 타입 해금을 영구 진행도로 저장한다.
+    // 기존 저장은 현재 보유량이 0보다 큰 타입을 우선 복원한다.
+    if (version < 11) {
+      migrated.progression ??= {};
+      migrated.progression.unlockedEnergyTypes ??= {};
+      for (const [type, amount] of Object.entries(migrated.resources?.energy ?? {})) {
+        if ((Number(amount) || 0) > 0) migrated.progression.unlockedEnergyTypes[type] = true;
+      }
+      const unlockedCount = Object.values(migrated.progression.unlockedEnergyTypes).filter(Boolean).length;
+      const tiers = GAME_CONFIG.portal.energyTypeUnlockTiers ?? [];
+      let reachedTier = 0;
+      for (let i = 0; i < tiers.length; i += 1) {
+        if (unlockedCount >= tiers[i].unlockedTypes) reachedTier = i + 1;
+      }
+      migrated.progression.portalEnergyTier = reachedTier;
+    }
+    migrated.progression ??= { unlockedEnergyTypes: {}, portalEnergyTier: 0 };
+    migrated.progression.unlockedEnergyTypes ??= {};
+    migrated.progression.portalEnergyTier ??= 0;
+
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;
     return migrated;
   }

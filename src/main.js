@@ -24,7 +24,7 @@ const productionSystem = new ProductionSystem({ pokemonData: POKEMON_DATA, energ
 const pokemonSystem = new PokemonSystem({ pokemonData: POKEMON_DATA, productionSystem });
 const portalSystem = new PortalSystem({ conditionSystem, effectSystem, productionSystem, pokemonSystem, pokemonData: POKEMON_DATA, energyTypes: ENERGY_TYPES });
 const unlockSystem = new UnlockSystem(effectSystem);
-unlockSystem.recalculate(savedState);
+unlockSystem.updateEnergyUnlocks(savedState);
 
 const game = new Game({
   store,

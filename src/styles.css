@@ -156,3 +156,14 @@ button{color:inherit}
 }
 
 .settings-toggle{width:max-content;max-width:100%;padding:9px 0}.settings-toggle b{font-size:12px;color:#cbd3df}
+
+/* v1.4: 에너지 직접입력 + 빠른 비율 버튼 */
+.portal-input-row{grid-template-rows:auto auto}
+.portal-input-row .type-dot{grid-row:1}
+.portal-input-row .input-type-name{grid-row:1}
+.portal-input-row input{grid-row:1;-moz-appearance:textfield;appearance:textfield}
+.portal-input-row input::-webkit-outer-spin-button,.portal-input-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.portal-input-row small{grid-row:1}
+.energy-quick-buttons{grid-column:2/-1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:1px}
+.energy-quick-buttons button{border:1px solid #2d394d;border-radius:6px;background:#111a25;color:#9eabbc;padding:4px 3px;font-size:10px;font-weight:700;cursor:pointer}
+.energy-quick-buttons button:hover{border-color:#665bd2;color:#e7e3ff;background:#171d32}
