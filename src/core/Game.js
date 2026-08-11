@@ -57,8 +57,11 @@ export class Game {
       result = this.portalSystem.summon(state);
       if (!result.ok) return;
       this.unlockSystem.recalculate(state);
-      this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다.`);
+      this.addLog('general', `포탈에서 ${attachJosa(result.pokemon.name, '이/가')} 나타났다. (총 ${result.count}마리)`);
       if (result.isNew) this.logNewPokemonEffects(result.pokemon);
+      if (result.overloadTriggered) {
+        this.addLog('important', `포탈이 과부하되었다. 재활성화 대기시간이 ${this.config.portal.overloadedCooldownSeconds}초로 증가했다.`);
+      }
     }, { notify: false });
     this.store.notify();
     return result;
@@ -111,36 +114,43 @@ export class Game {
     const state = this.store.getState();
     if (state.story?.introComplete) return;
 
-    const emitNext = () => {
+    const grantDitto = () => {
       const current = this.store.getState();
-      const index = current.story.introNextIndex ?? 0;
-      if (index >= INTRO_LOG_LINES.length) {
+      if (current.story.dittoGranted) {
         current.story.introComplete = true;
         this.store.notify();
         this.introTimer = null;
         return;
       }
 
+      const acquisition = this.pokemonSystem.acquire(current, 'ditto', { now: Date.now() });
+      current.story.dittoGranted = true;
+      current.story.introComplete = true;
+      this.unlockSystem.recalculate(current);
+      if (acquisition.isNew) this.logNewPokemonEffects(acquisition.pokemon);
+      this.store.notify();
+      this.introTimer = null;
+    };
+
+    const emitNext = () => {
+      const current = this.store.getState();
+      const index = current.story.introNextIndex ?? 0;
+
+      // 마지막 세계관 문장이 이미 출력된 상태라면 1.5초 후 메타몽을 지급한다.
+      if (index >= INTRO_LOG_LINES.length) {
+        this.introTimer = setTimeout(grantDitto, this.config.story.introLineDelayMs);
+        return;
+      }
+
       this.addLog('important', INTRO_LOG_LINES[index]);
       current.story.introNextIndex = index + 1;
-
-      // 마지막 세계관 문장이 표시된 직후, 최초 메타몽을 실제 게임 상태에 지급한다.
-      if (current.story.introNextIndex >= INTRO_LOG_LINES.length) {
-        current.story.introComplete = true;
-        if (!current.story.dittoGranted) {
-          const acquisition = this.pokemonSystem.acquire(current, 'ditto', { now: Date.now() });
-          current.story.dittoGranted = true;
-          this.unlockSystem.recalculate(current);
-          if (acquisition.isNew) this.logNewPokemonEffects(acquisition.pokemon);
-        }
-      }
-
       this.store.notify();
-      if (!current.story.introComplete) {
-        this.introTimer = setTimeout(emitNext, this.config.story.introLineDelayMs);
-      } else {
-        this.introTimer = null;
-      }
+
+      // 모든 문장 사이, 그리고 마지막 문장과 메타몽 획득 사이에도 동일한 간격을 둔다.
+      this.introTimer = setTimeout(
+        current.story.introNextIndex >= INTRO_LOG_LINES.length ? grantDitto : emitNext,
+        this.config.story.introLineDelayMs,
+      );
     };
 
     emitNext();

@@ -11,8 +11,14 @@ export class PortalSystem {
     this.random = random;
   }
 
+  getBaseCooldownSeconds(state) {
+    return state.portal.overloaded
+      ? GAME_CONFIG.portal.overloadedCooldownSeconds
+      : GAME_CONFIG.portal.baseCooldownSeconds;
+  }
+
   getCooldownSeconds(state) {
-    const ctx = this.effectSystem.runHook('portal:cooldown', state, { value: GAME_CONFIG.portal.baseCooldownSeconds });
+    const ctx = this.effectSystem.runHook('portal:cooldown', state, { value: this.getBaseCooldownSeconds(state) });
     return Math.max(GAME_CONFIG.portal.minCooldownSeconds, ctx.value);
   }
 
@@ -40,7 +46,20 @@ export class PortalSystem {
     const pokemon = validation.candidates[index];
     const acquisition = this.pokemonSystem.acquire(state, pokemon.id, { now });
 
+    state.portal.totalSummons = (state.portal.totalSummons ?? 0) + 1;
+    const overloadTriggered = !state.portal.overloaded
+      && state.portal.totalSummons >= GAME_CONFIG.portal.overloadAtSummons;
+    if (overloadTriggered) state.portal.overloaded = true;
+
     state.portal.cooldownUntil = now + this.getCooldownSeconds(state) * 1000;
-    return { ok: true, pokemon, isNew: acquisition.isNew, candidateCount: validation.candidates.length };
+    return {
+      ok: true,
+      pokemon,
+      isNew: acquisition.isNew,
+      count: acquisition.count,
+      candidateCount: validation.candidates.length,
+      totalSummons: state.portal.totalSummons,
+      overloadTriggered,
+    };
   }
 }

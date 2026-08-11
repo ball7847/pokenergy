@@ -67,6 +67,19 @@ export class SaveSystem {
       migrated.story.dittoGranted = (migrated.pokemon.counts.ditto ?? 0) > 0;
       migrated.runtime.lastProductionAt = Date.now();
     }
+
+    // v6부터 포탈 소환 횟수와 과부하 상태를 저장한다.
+    // 기존 버전에는 포켓몬을 소모/방출하는 기능이 없으므로 현재 총 개체 수에서
+    // 시작 연출로 지급된 메타몽 1마리를 빼면 기존 포탈 소환 횟수를 복원할 수 있다.
+    if (version < 6) {
+      const totalIndividuals = Object.values(migrated.pokemon.counts ?? {})
+        .reduce((sum, count) => sum + (Number(count) || 0), 0);
+      const introDitto = migrated.story?.dittoGranted && (migrated.pokemon.counts?.ditto ?? 0) > 0 ? 1 : 0;
+      migrated.portal.totalSummons = Math.max(0, totalIndividuals - introDitto);
+      migrated.portal.overloaded = migrated.portal.totalSummons >= GAME_CONFIG.portal.overloadAtSummons;
+    }
+    migrated.portal.totalSummons ??= 0;
+    migrated.portal.overloaded ??= false;
     migrated.runtime.lastProductionAt ??= Date.now();
 
     migrated.meta.saveVersion = GAME_CONFIG.saveVersion;

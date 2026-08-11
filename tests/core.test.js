@@ -113,7 +113,7 @@ test('한국어 조사 이/가를 받침 유무에 맞게 선택한다', () => {
   assert.equal(attachJosa('피카츄', '이/가'), '피카츄가');
 });
 
-test('v4 저장은 v5에서 기존 메타몽 재지급 방지 플래그를 설정한다', () => {
+test('v4 저장은 최신 버전에서 기존 메타몽 재지급 방지 플래그를 설정한다', () => {
   const legacy = createInitialState(100);
   legacy.meta.saveVersion = 4;
   legacy.pokemon.counts.ditto = 1;
@@ -127,5 +127,48 @@ test('v4 저장은 v5에서 기존 메타몽 재지급 방지 플래그를 설�
   };
   const loaded = new SaveSystem(storage).load();
   assert.equal(loaded.story.dittoGranted, true);
-  assert.equal(loaded.meta.saveVersion, 5);
+  assert.equal(loaded.meta.saveVersion, 6);
+});
+
+
+test('기본 포탈 쿨타임은 10초다', () => {
+  const state = createInitialState();
+  const { portalSystem } = createSystems();
+  assert.equal(portalSystem.getCooldownSeconds(state), 10);
+});
+
+test('100번째 포탈 소환에서 과부하가 발생하고 쿨타임이 30초가 된다', () => {
+  const state = createInitialState();
+  const { portalSystem } = createSystems(() => 0);
+  state.portal.totalSummons = 99;
+  state.resources.energy.normal = 10;
+  state.portal.input.normal = 10;
+  const now = 1_000;
+  const result = portalSystem.summon(state, now);
+  assert.equal(result.ok, true);
+  assert.equal(result.totalSummons, 100);
+  assert.equal(result.overloadTriggered, true);
+  assert.equal(state.portal.overloaded, true);
+  assert.equal(state.portal.cooldownUntil, now + 30_000);
+});
+
+test('v5 저장은 현재 개체 수에서 시작 메타몽 1마리를 빼 포탈 소환 수를 복원한다', () => {
+  const legacy = createInitialState(100);
+  legacy.meta.saveVersion = 5;
+  legacy.story.dittoGranted = true;
+  legacy.story.introComplete = true;
+  legacy.pokemon.counts.ditto = 4;
+  legacy.pokemon.counts.rattata = 7;
+  delete legacy.portal.totalSummons;
+  delete legacy.portal.overloaded;
+  const storage = {
+    value: JSON.stringify(legacy),
+    getItem() { return this.value; },
+    setItem(_key, value) { this.value = value; },
+    removeItem() { this.value = null; },
+  };
+  const loaded = new SaveSystem(storage).load();
+  assert.equal(loaded.portal.totalSummons, 10);
+  assert.equal(loaded.portal.overloaded, false);
+  assert.equal(loaded.meta.saveVersion, 6);
 });

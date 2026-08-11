@@ -273,7 +273,6 @@ export class AppView {
       <section class="record-panel record-panel-${kind}" data-record-kind="${kind}" data-record-signature="${this.recordSignature(records)}">
         <div class="section-heading log-heading">
           <div><span class="eyebrow">${kind === 'important' ? 'IMPORTANT RECORD' : 'GENERAL RECORD'}</span><h1>${title}</h1></div>
-          <span class="record-count" data-record-count>${records.length}</span>
         </div>
         <div class="record-list" data-record-list>${this.recordEntriesHtml(kind, records)}</div>
       </section>
@@ -307,9 +306,7 @@ export class AppView {
       if (recordPanel.dataset.recordSignature === signature) continue;
 
       const list = recordPanel.querySelector('[data-record-list]');
-      const count = recordPanel.querySelector('[data-record-count]');
       if (list) list.innerHTML = this.recordEntriesHtml(kind, records);
-      if (count) count.textContent = records.length;
       recordPanel.dataset.recordSignature = signature;
 
       // 새 기록은 아래에 추가되므로 새 로그가 보이도록 해당 창의 맨 아래로 이동한다.
@@ -426,8 +423,11 @@ export class AppView {
             return `
               <button class="dex-card ${found ? 'found' : 'unknown'}" data-dex-id="${p.id}" type="button" ${found ? '' : 'disabled'}>
                 <span class="dex-number">No.${String(p.dex ?? 0).padStart(4, '0')}</span>
-                ${found ? this.pokemonSprite(p, false) : '<div class="unknown-sprite">?</div>'}
-                <strong>${found ? p.name : '???'}</strong>
+                ${this.pokemonSprite(p, false, found ? '' : 'undiscovered')}
+                <strong>${p.name}</strong>
+                <div class="dex-card-types type-tags">
+                  ${p.types.map(t => `<span class="type-tag type-${t}">${TYPE_LABELS[t]}</span>`).join('')}
+                </div>
               </button>
             `;
           }).join('')}
@@ -532,11 +532,12 @@ export class AppView {
     return pokemon.types.map(type => `${TYPE_LABELS[type]} +${(1 / pokemon.types.length).toFixed(1)}/s`).join(' · ') + ' (임시 규칙)';
   }
 
-  pokemonSprite(pokemon, large) {
+  pokemonSprite(pokemon, large, extraClass = '') {
     const dex = pokemon.dex;
     if (!dex) return '<div class="sprite-placeholder">?</div>';
     const src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png`;
-    return `<img class="pokemon-sprite ${large ? 'large' : ''}" src="${src}" alt="${pokemon.name}" loading="lazy">`;
+    const classes = ['pokemon-sprite', large ? 'large' : '', extraClass].filter(Boolean).join(' ');
+    return `<img class="${classes}" src="${src}" alt="${pokemon.name}" loading="lazy">`;
   }
 
   formatDateTime(timestamp) {

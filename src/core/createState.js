@@ -21,6 +21,8 @@ export function createInitialState(now = Date.now()) {
     portal: {
       input: Object.fromEntries(ENERGY_TYPES.map(type => [type, 0])),
       cooldownUntil: 0,
+      totalSummons: 0,
+      overloaded: false,
       auto: { enabled: false },
     },
     unlocks: { maxEnergyTypes: GAME_CONFIG.portal.startingMaxEnergyTypes, autoSummon: false },
