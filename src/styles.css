@@ -545,3 +545,9 @@ h1 {
 
 .energy-bug { background: #f1f7df; }
 .type-bug .pokemon-dot { background: #91ad3d; }
+
+.energy-flying { background: #eef5fb; }
+.energy-fighting { background: #f8eee9; }
+.type-flying .pokemon-dot { background: #8eb8d8; }
+.type-fighting .pokemon-dot { background: #c67858; }
+.log-message { white-space: normal; }

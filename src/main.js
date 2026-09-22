@@ -6,7 +6,9 @@ const energyTypes = {
   fire: { name: "불꽃", icon: "🔥" },
   water: { name: "물", icon: "💧" },
   normal: { name: "노말", icon: "⚪" },
-  bug: { name: "벌레", icon: "🐛" }
+  bug: { name: "벌레", icon: "🐛" },
+  flying: { name: "비행", icon: "🪽" },
+  fighting: { name: "격투", icon: "🥊" }
 };
 
 const randomNatureTypes = ["grass", "fire", "water"];
@@ -16,7 +18,9 @@ const pokemonData = [
   { id: "charmander", name: "파이리", type: "fire", unlockAt: 4, ability: "맹화 I", effect: "자연에서 불꽃 에너지 획득량 +0.1 · 클릭마다 노말 에너지 +0.1" },
   { id: "squirtle", name: "꼬부기", type: "water", unlockAt: 7, ability: "급류 I", effect: "자연에서 물 에너지 획득량 +0.1 · 클릭마다 노말 에너지 +0.1" },
   { id: "rattata", name: "꼬렛", type: "normal", unlockAt: 19, ability: "몸통박치기", effect: "3초마다 자동으로 자연 탐색" },
-  { id: "caterpie", name: "캐터피", type: "bug", unlockType: "grass", unlockAt: 10, ability: "인분", effect: "자연에서 10% 확률로 벌레 에너지 +0.1" }
+  { id: "caterpie", name: "캐터피", type: "bug", unlockType: "grass", unlockAt: 10, ability: "인분", effect: "자연에서 10% 확률로 벌레 에너지 +0.1" },
+  { id: "mankey", name: "망키", type: "fighting", unlockMode: "explorations", unlockAt: 560, ability: "할퀴기", effect: "3초마다 자동으로 자연 탐색" },
+  { id: "pidgey", name: "구구", type: "flying", unlockType: "bug", unlockAt: 10, ability: "쪼기", effect: "자연에서 10% 확률로 비행 에너지 +0.1" }
 ];
 
 const starterIds = ["bulbasaur", "charmander", "squirtle"];
@@ -32,7 +36,7 @@ const buildingData = {
 };
 
 const defaultState = {
-  energies: { grass: 0, fire: 0, water: 0, normal: 0, bug: 0 },
+  energies: { grass: 0, fire: 0, water: 0, normal: 0, bug: 0, flying: 0, fighting: 0 },
   discovered: [],
   activeTab: "nature",
   lastGain: null,
@@ -40,7 +44,8 @@ const defaultState = {
   gameStartedAt: Date.now(),
   logs: [],
   unlocks: { village: false, greenMeadow: false },
-  buildings: { greenMeadow: false }
+  buildings: { greenMeadow: false },
+  seenEnergies: []
 };
 
 let state = loadState();
@@ -100,6 +105,10 @@ function migrateSave(saved) {
   migrated.logs = Array.isArray(saved.logs) ? saved.logs : [];
   migrated.unlocks = { ...migrated.unlocks, ...(saved.unlocks || {}) };
   migrated.buildings = { ...migrated.buildings, ...(saved.buildings || {}) };
+  migrated.seenEnergies = Array.isArray(saved.seenEnergies) ? saved.seenEnergies : [];
+  Object.entries(migrated.energies).forEach(function (entry) {
+    if (entry[1] > 0 && !migrated.seenEnergies.includes(entry[0])) migrated.seenEnergies.push(entry[0]);
+  });
 
   return migrated;
 }
@@ -161,8 +170,15 @@ function getNormalGainPerClick() {
   return roundEnergy(amount);
 }
 
+function getAutoExplorerCount() {
+  let count = 0;
+  if (hasPokemon("rattata")) count += 1;
+  if (hasPokemon("mankey")) count += 1;
+  return count;
+}
+
 function getAutoExplorationsPerSecond() {
-  return hasPokemon("rattata") ? 1 / 3 : 0;
+  return getAutoExplorerCount() / 3;
 }
 
 function getPassiveProduction(type) {
@@ -173,6 +189,9 @@ function getPassiveProduction(type) {
 
 function addEnergy(type, amount) {
   state.energies[type] = roundEnergy(state.energies[type] + amount);
+  if (amount > 0 && !state.seenEnergies.includes(type)) {
+    state.seenEnergies.push(type);
+  }
 }
 
 function checkVillageUnlock(writeLog = true) {
@@ -182,7 +201,7 @@ function checkVillageUnlock(writeLog = true) {
   state.unlocks.greenMeadow = true;
 
   if (writeLog) {
-    addLog("포켓몬이 모여 마을을 이루었다!");
+    addLog("포켓몬이 모여 마을을 이루었다!\n▶ 마을 탭 해금");
     addLog("마을에 초록 풀숲을 만들 수 있다!");
   }
 
@@ -195,7 +214,10 @@ function discoverPokemon() {
 
   pokemonData.forEach(function (pokemon) {
     const unlockType = pokemon.unlockType || pokemon.type;
-    if (!hasPokemon(pokemon.id) && state.energies[unlockType] >= pokemon.unlockAt) {
+    const conditionMet = pokemon.unlockMode === "explorations"
+      ? state.totalClicks >= pokemon.unlockAt
+      : state.energies[unlockType] >= pokemon.unlockAt;
+    if (!hasPokemon(pokemon.id) && conditionMet) {
       state.discovered.push(pokemon.id);
       found.push(pokemon);
       addLog("어디선가 " + pokemon.name + "가 나타났다!");
@@ -221,6 +243,12 @@ function gatherFromNature(options) {
     addEnergy("bug", bugAmount);
   }
 
+  let flyingAmount = 0;
+  if (hasPokemon("pidgey") && Math.random() < 0.1) {
+    flyingAmount = 0.1;
+    addEnergy("flying", flyingAmount);
+  }
+
   state.totalClicks += 1;
 
   const discoveredNow = discoverPokemon();
@@ -229,6 +257,7 @@ function gatherFromNature(options) {
     amount: amount,
     normalAmount: normalAmount,
     bugAmount: bugAmount,
+    flyingAmount: flyingAmount,
     auto: Boolean(isAuto),
     pokemon: discoveredNow.map(function (pokemon) { return pokemon.name; })
   };
@@ -283,6 +312,7 @@ function renderEnergyBar() {
   Object.entries(energyTypes).forEach(function (entry) {
     const type = entry[0];
     const info = entry[1];
+    if (!state.seenEnergies.includes(type)) return;
     const production = getPassiveProduction(type);
     const productionText = production > 0
       ? '<span class="energy-production">(+' + formatNumber(production) + '/s)</span>'
@@ -323,7 +353,7 @@ function renderLogs() {
 
   return state.logs.slice().reverse().map(function (entry) {
     return '<div class="log-entry"><span class="log-time">[' + formatElapsed(entry.elapsed) + ']</span> ' +
-      '<span>' + entry.message + '</span></div>';
+      '<span class="log-message">' + entry.message.replace(/\n/g, "<br>") + '</span></div>';
   }).join("");
 }
 
@@ -353,28 +383,35 @@ function renderNature() {
     const bugText = state.lastGain.bugAmount > 0
       ? ' · 🐛 벌레 +' + formatNumber(state.lastGain.bugAmount)
       : "";
+    const flyingText = state.lastGain.flyingAmount > 0
+      ? ' · 🪽 비행 +' + formatNumber(state.lastGain.flyingAmount)
+      : "";
     const autoText = state.lastGain.auto ? '<span class="auto-label">자동</span>' : "";
 
     gainHtml = '<div class="gain-message ' + state.lastGain.type + '">' +
       autoText +
       energyTypes[state.lastGain.type].icon + ' ' +
       energyTypes[state.lastGain.type].name + ' +' + formatNumber(state.lastGain.amount) +
-      normalText + bugText + discovery + '</div>';
+      normalText + bugText + flyingText + discovery + '</div>';
   }
 
   let unlockHtml = "";
-  pokemonData.forEach(function (pokemon) {
-    const unlocked = hasPokemon(pokemon.id);
+  pokemonData.filter(function (pokemon) {
+    return !hasPokemon(pokemon.id);
+  }).forEach(function (pokemon) {
+    const unlocked = false;
     const unlockType = pokemon.unlockType || pokemon.type;
-    const current = state.energies[unlockType];
+    const current = pokemon.unlockMode === "explorations" ? state.totalClicks : state.energies[unlockType];
     const progress = Math.min(100, (current / pokemon.unlockAt) * 100);
 
-    unlockHtml += '<article class="unlock-card ' + (unlocked ? 'unlocked' : '') + '">' +
+    unlockHtml += '<article class="unlock-card">' +
       '<div class="unlock-card-top"><span>' + energyTypes[pokemon.type].icon + ' ' + pokemon.name + '</span>' +
-      '<span>' + (unlocked ? '발견' : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
+      '<span>' + (pokemon.unlockMode === "explorations" ? current + ' / ' + pokemon.unlockAt : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
       '<p><strong>[' + pokemon.ability + ']</strong> ' +
-      (unlocked ? pokemon.effect : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+      (pokemon.unlockMode === "explorations"
+        ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
+        : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></article>';
   });
 
@@ -413,7 +450,11 @@ function renderDex() {
       '<div class="dex-number">' + (unlocked ? energyTypes[pokemon.type].icon : '?') + '</div>' +
       '<div><h2>' + (unlocked ? pokemon.name : '미발견 포켓몬') + '</h2>' +
       '<p><strong>[' + pokemon.ability + ']</strong> ' +
-      (unlocked ? pokemon.effect : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+      (unlocked
+        ? pokemon.effect
+        : pokemon.unlockMode === "explorations"
+          ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
+          : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></div></article>';
   });
 
@@ -490,7 +531,10 @@ function render() {
 }
 
 setInterval(function () {
-  if (hasPokemon("rattata")) gatherFromNature({ auto: true });
+  const count = getAutoExplorerCount();
+  for (let i = 0; i < count; i += 1) {
+    gatherFromNature({ auto: true });
+  }
 }, 3000);
 
 setInterval(function () {
