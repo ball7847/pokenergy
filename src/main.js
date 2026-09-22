@@ -32,6 +32,20 @@ const buildingData = {
     description: "매초 풀 에너지 +0.1",
     cost: { grass: 25, water: 15 },
     production: { grass: 0.1 }
+  },
+  campfire: {
+    id: "campfire",
+    name: "모닥불",
+    description: "매초 불꽃 에너지 +0.1",
+    cost: { grass: 25, fire: 25 },
+    production: { fire: 0.1 }
+  },
+  moistMeadow: {
+    id: "moistMeadow",
+    name: "촉촉한 풀숲",
+    description: "매초 풀 에너지 +0.1 및 물 에너지 +0.1",
+    cost: { grass: 25, water: 25 },
+    production: { grass: 0.1, water: 0.1 }
   }
 };
 
@@ -43,8 +57,8 @@ const defaultState = {
   totalClicks: 0,
   gameStartedAt: Date.now(),
   logs: [],
-  unlocks: { village: false, greenMeadow: false },
-  buildings: { greenMeadow: false },
+  unlocks: { village: false, greenMeadow: false, campfire: false, moistMeadow: false },
+  buildings: { greenMeadow: false, campfire: false, moistMeadow: false },
   seenEnergies: []
 };
 
@@ -221,7 +235,17 @@ function getAutoExplorationsPerSecond() {
 
 function getPassiveProduction(type) {
   let amount = 0;
-  if (state.buildings.greenMeadow && type === "grass") amount += buildingData.greenMeadow.production.grass;
+  if (state.buildings.moistMeadow) {
+    if (type === "grass") amount += buildingData.moistMeadow.production.grass;
+    if (type === "water") amount += buildingData.moistMeadow.production.water;
+  } else if (state.buildings.greenMeadow && type === "grass") {
+    amount += buildingData.greenMeadow.production.grass;
+  }
+
+  if (state.buildings.campfire && type === "fire") {
+    amount += buildingData.campfire.production.fire;
+  }
+
   return roundEnergy(amount);
 }
 
@@ -237,10 +261,12 @@ function checkVillageUnlock(writeLog = true) {
 
   state.unlocks.village = true;
   state.unlocks.greenMeadow = true;
+  state.unlocks.campfire = true;
 
   if (writeLog) {
     addLog("포켓몬이 모여 마을을 이루었다!\n▶ 마을 탭 해금");
     addLog("마을에 초록 풀숲을 만들 수 있다!");
+    addLog("마을에 모닥불을 만들 수 있다!");
   }
 
   saveState();
@@ -319,7 +345,37 @@ function buildGreenMeadow() {
   });
 
   state.buildings.greenMeadow = true;
+  state.unlocks.moistMeadow = true;
   addLog("마을에 초록 풀숲이 생겼다!");
+  addLog("초록 풀숲을 촉촉한 풀숲으로 업그레이드할 수 있다!");
+  saveState();
+  render();
+}
+
+function buildCampfire() {
+  const building = buildingData.campfire;
+  if (!state.unlocks.campfire || state.buildings.campfire || !canAfford(building.cost)) return;
+
+  Object.entries(building.cost).forEach(function (entry) {
+    addEnergy(entry[0], -entry[1]);
+  });
+
+  state.buildings.campfire = true;
+  addLog("마을에 모닥불이 생겼다!");
+  saveState();
+  render();
+}
+
+function buildMoistMeadow() {
+  const building = buildingData.moistMeadow;
+  if (!state.unlocks.moistMeadow || state.buildings.moistMeadow || !state.buildings.greenMeadow || !canAfford(building.cost)) return;
+
+  Object.entries(building.cost).forEach(function (entry) {
+    addEnergy(entry[0], -entry[1]);
+  });
+
+  state.buildings.moistMeadow = true;
+  addLog("초록 풀숲이 촉촉한 풀숲으로 바뀌었다!");
   saveState();
   render();
 }
@@ -503,31 +559,84 @@ function renderDex() {
 }
 
 function renderVillage() {
-  const building = buildingData.greenMeadow;
-  const built = state.buildings.greenMeadow;
-  const affordable = canAfford(building.cost);
+  const green = buildingData.greenMeadow;
+  const campfire = buildingData.campfire;
+  const moist = buildingData.moistMeadow;
+
+  const greenBuilt = state.buildings.greenMeadow;
+  const moistBuilt = state.buildings.moistMeadow;
+  const campfireBuilt = state.buildings.campfire;
+
+  const greenAffordable = canAfford(green.cost);
+  const campfireAffordable = canAfford(campfire.cost);
+  const moistAffordable = canAfford(moist.cost);
+
+  let meadowCard = "";
+
+  if (moistBuilt) {
+    meadowCard =
+      '<article class="building-card built">' +
+        '<div class="building-visual moist-meadow-visual">🌿💧</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>촉촉한 풀숲</h2><span>업그레이드 완료</span></div>' +
+          '<p>' + moist.description + '</p>' +
+          '<div class="built-status">매초 🌿 풀 +0.1 · 💧 물 +0.1 생산 중</div>' +
+        '</div>' +
+      '</article>';
+  } else if (greenBuilt) {
+    meadowCard =
+      '<article class="building-card built">' +
+        '<div class="building-visual meadow-visual">🌿</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>초록 풀숲</h2><span>건설 완료</span></div>' +
+          '<p>' + green.description + '</p>' +
+          '<div class="built-status">매초 🌿 풀 에너지 +0.1 생산 중</div>' +
+          (state.unlocks.moistMeadow
+            ? '<div class="upgrade-box"><strong>촉촉한 풀숲으로 업그레이드</strong>' +
+              '<p>' + moist.description + '</p>' +
+              '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 25</span></div>' +
+              '<button id="build-moist-meadow" ' + (moistAffordable ? '' : 'disabled') + '>' +
+                (moistAffordable ? '촉촉한 풀숲으로 업그레이드' : '에너지가 부족합니다') +
+              '</button></div>'
+            : '') +
+        '</div>' +
+      '</article>';
+  } else {
+    meadowCard =
+      '<article class="building-card">' +
+        '<div class="building-visual meadow-visual">🌿</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>' + green.name + '</h2><span>건설 가능</span></div>' +
+          '<p>' + green.description + '</p>' +
+          '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 15</span></div>' +
+          '<button id="build-green-meadow" ' + (greenAffordable ? '' : 'disabled') + '>' +
+            (greenAffordable ? '초록 풀숲 건설' : '에너지가 부족합니다') +
+          '</button>' +
+        '</div>' +
+      '</article>';
+  }
+
+  const campfireCard =
+    '<article class="building-card ' + (campfireBuilt ? 'built' : '') + '">' +
+      '<div class="building-visual campfire-visual">🔥</div>' +
+      '<div class="building-body">' +
+        '<div class="building-title-row"><h2>' + campfire.name + '</h2><span>' + (campfireBuilt ? '건설 완료' : '건설 가능') + '</span></div>' +
+        '<p>' + campfire.description + '</p>' +
+        '<div class="building-cost"><span>🌿 풀 25</span><span>🔥 불꽃 25</span></div>' +
+        (campfireBuilt
+          ? '<div class="built-status fire-status">매초 🔥 불꽃 에너지 +0.1 생산 중</div>'
+          : '<button id="build-campfire" ' + (campfireAffordable ? '' : 'disabled') + '>' +
+              (campfireAffordable ? '모닥불 건설' : '에너지가 부족합니다') +
+            '</button>') +
+      '</div>' +
+    '</article>';
 
   return '<section class="panel village-panel">' +
     '<div class="section-heading"><div><p class="eyebrow">VILLAGE</p><h1>마을</h1></div></div>' +
     '<div class="village-intro"><h2>보금자리</h2><p>포켓몬들이 살아갈 장소를 만들어 마을의 에너지 생산을 늘립니다.</p></div>' +
-    '<div class="building-grid">' +
-      '<article class="building-card ' + (built ? 'built' : '') + '">' +
-        '<div class="building-visual meadow-visual">🌿</div>' +
-        '<div class="building-body">' +
-          '<div class="building-title-row"><h2>' + building.name + '</h2><span>' + (built ? '건설 완료' : '건설 가능') + '</span></div>' +
-          '<p>' + building.description + '</p>' +
-          '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 15</span></div>' +
-          (built
-            ? '<div class="built-status">매초 🌿 풀 에너지 +0.1 생산 중</div>'
-            : '<button id="build-green-meadow" ' + (affordable ? '' : 'disabled') + '>' +
-                (affordable ? '초록 풀숲 건설' : '에너지가 부족합니다') +
-              '</button>') +
-        '</div>' +
-      '</article>' +
-    '</div>' +
+    '<div class="building-grid">' + meadowCard + campfireCard + '</div>' +
     '</section>';
 }
-
 function renderSettings() {
   return '<section class="panel">' +
     '<div class="section-heading"><div><p class="eyebrow">SETTINGS</p><h1>설정</h1></div></div>' +
@@ -563,6 +672,12 @@ function render() {
 
   const buildGreenMeadowButton = document.querySelector("#build-green-meadow");
   if (buildGreenMeadowButton) buildGreenMeadowButton.addEventListener("click", buildGreenMeadow);
+
+  const buildCampfireButton = document.querySelector("#build-campfire");
+  if (buildCampfireButton) buildCampfireButton.addEventListener("click", buildCampfire);
+
+  const buildMoistMeadowButton = document.querySelector("#build-moist-meadow");
+  if (buildMoistMeadowButton) buildMoistMeadowButton.addEventListener("click", buildMoistMeadow);
 
   const resetButton = document.querySelector("#reset-button");
   if (resetButton) resetButton.addEventListener("click", resetGame);

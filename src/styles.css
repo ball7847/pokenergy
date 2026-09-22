@@ -551,3 +551,65 @@ h1 {
 .type-flying .pokemon-dot { background: #8eb8d8; }
 .type-fighting .pokemon-dot { background: #c67858; }
 .log-message { white-space: normal; }
+
+.campfire-visual {
+  background:
+    radial-gradient(circle at 50% 68%, rgba(255, 212, 133, .95) 0 12%, transparent 13%),
+    radial-gradient(circle at 50% 58%, rgba(239, 121, 63, .85) 0 18%, transparent 19%),
+    linear-gradient(180deg, #fff3df, #ead0b7);
+}
+
+.moist-meadow-visual {
+  background:
+    radial-gradient(circle at 20% 58%, #d3efaa 0 12%, transparent 13%),
+    radial-gradient(circle at 72% 42%, #a9d87a 0 16%, transparent 17%),
+    linear-gradient(180deg, #dff4dc 0%, #acd98a 58%, #82c8d8 100%);
+}
+
+#build-campfire,
+#build-moist-meadow {
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#build-campfire {
+  background: #c87543;
+}
+
+#build-moist-meadow {
+  background: #4e93a8;
+}
+
+#build-campfire:disabled,
+#build-moist-meadow:disabled {
+  background: #b8c0b7;
+  cursor: not-allowed;
+}
+
+.upgrade-box {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #cbded2;
+  border-radius: 14px;
+  background: #f7fbf6;
+}
+
+.upgrade-box > strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.upgrade-box p {
+  margin-bottom: 8px;
+}
+
+.fire-status {
+  background: #fff0e6;
+  color: #9a5a32;
+}
