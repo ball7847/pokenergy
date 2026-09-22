@@ -67,6 +67,40 @@ function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
+function getFinalConsonantIndex(word) {
+  if (!word) return -1;
+  const lastChar = word.charCodeAt(word.length - 1);
+  if (lastChar < 0xac00 || lastChar > 0xd7a3) return -1;
+  return (lastChar - 0xac00) % 28;
+}
+
+function withParticle(word, pair) {
+  const jong = getFinalConsonantIndex(word);
+  const hasBatchim = jong > 0;
+
+  if (pair === "이/가") return word + (hasBatchim ? "이" : "가");
+  if (pair === "은/는") return word + (hasBatchim ? "은" : "는");
+  if (pair === "을/를") return word + (hasBatchim ? "을" : "를");
+  if (pair === "과/와") return word + (hasBatchim ? "과" : "와");
+  if (pair === "으로/로") {
+    const hasRieulBatchim = jong === 8;
+    return word + (hasBatchim && !hasRieulBatchim ? "으로" : "로");
+  }
+
+  return word;
+}
+
+function normalizeKoreanParticles(message) {
+  let result = message;
+  pokemonData.forEach(function (pokemon) {
+    result = result.replace(
+      new RegExp("어디선가 " + pokemon.name + "(?:이|가)? 나타났다!", "g"),
+      "어디선가 " + withParticle(pokemon.name, "이/가") + " 나타났다!"
+    );
+  });
+  return result;
+}
+
 function formatElapsed(totalSeconds) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const days = Math.floor(seconds / 86400);
@@ -102,7 +136,11 @@ function migrateSave(saved) {
   migrated.lastGain = saved.lastGain || null;
   migrated.totalClicks = saved.totalClicks || 0;
   migrated.gameStartedAt = saved.gameStartedAt || Date.now();
-  migrated.logs = Array.isArray(saved.logs) ? saved.logs : [];
+  migrated.logs = Array.isArray(saved.logs)
+    ? saved.logs.map(function (entry) {
+        return { ...entry, message: normalizeKoreanParticles(entry.message || "") };
+      })
+    : [];
   migrated.unlocks = { ...migrated.unlocks, ...(saved.unlocks || {}) };
   migrated.buildings = { ...migrated.buildings, ...(saved.buildings || {}) };
   migrated.seenEnergies = Array.isArray(saved.seenEnergies) ? saved.seenEnergies : [];
@@ -220,7 +258,7 @@ function discoverPokemon() {
     if (!hasPokemon(pokemon.id) && conditionMet) {
       state.discovered.push(pokemon.id);
       found.push(pokemon);
-      addLog("어디선가 " + pokemon.name + "가 나타났다!");
+      addLog("어디선가 " + withParticle(pokemon.name, "이/가") + " 나타났다!");
     }
   });
 
@@ -375,7 +413,7 @@ function renderNature() {
   let gainHtml = '<div class="gain-message muted">자연을 눌러 에너지를 모아보세요.</div>';
   if (state.lastGain) {
     const discovery = state.lastGain.pokemon.length
-      ? '<span class="discovery"> · ' + state.lastGain.pokemon.join(", ") + '가 나타났다!</span>'
+      ? '<span class="discovery"> · ' + state.lastGain.pokemon.map(function (name) { return withParticle(name, "이/가"); }).join(", ") + ' 나타났다!</span>'
       : "";
     const normalText = state.lastGain.normalAmount > 0
       ? ' · ⚪ 노말 +' + formatNumber(state.lastGain.normalAmount)
