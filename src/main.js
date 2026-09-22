@@ -412,14 +412,15 @@ function discoverPokemon() {
 
 function gatherFromNature(options) {
   const isAuto = options && options.auto;
-  const normalAmount = getNormalGainPerClick();
+  const multiplier = options && options.multiplier ? options.multiplier : 1;
+  const normalAmount = roundEnergy(getNormalGainPerClick() * multiplier);
   const elementalGains = {};
   let primaryType = null;
   let primaryAmount = 0;
 
   if (hasPokemon("eevee")) {
     randomNatureTypes.forEach(function (type) {
-      const amount = getNatureGain(type);
+      const amount = roundEnergy(getNatureGain(type) * multiplier);
       elementalGains[type] = amount;
       addEnergy(type, amount);
     });
@@ -427,7 +428,7 @@ function gatherFromNature(options) {
     primaryAmount = elementalGains.grass;
   } else {
     const type = randomNatureTypes[Math.floor(Math.random() * randomNatureTypes.length)];
-    const amount = getNatureGain(type);
+    const amount = roundEnergy(getNatureGain(type) * multiplier);
     elementalGains[type] = amount;
     addEnergy(type, amount);
     primaryType = type;
@@ -444,7 +445,7 @@ function gatherFromNature(options) {
     bugAmount = 0.1 +
       (hasPokemon("weedle") ? 0.1 : 0) +
       (hasPokemon("combee") ? 0.1 : 0);
-    bugAmount = roundEnergy(bugAmount);
+    bugAmount = roundEnergy(bugAmount * multiplier);
     addEnergy("bug", bugAmount);
   }
 
@@ -454,11 +455,11 @@ function gatherFromNature(options) {
     flyingAmount = 0.1 +
       (hasPokemon("pidgey") ? 0.1 : 0) +
       (hasPokemon("combee") ? 0.1 : 0);
-    flyingAmount = roundEnergy(flyingAmount);
+    flyingAmount = roundEnergy(flyingAmount * multiplier);
     addEnergy("flying", flyingAmount);
   }
 
-  state.totalClicks += 1;
+  state.totalClicks = roundEnergy(state.totalClicks + multiplier);
 
   const logSignatureBeforeDiscovery = getLatestLogSignature();
   const discoveredNow = discoverPokemon();
@@ -471,6 +472,7 @@ function gatherFromNature(options) {
     bugAmount: bugAmount,
     flyingAmount: flyingAmount,
     auto: Boolean(isAuto),
+    multiplier: multiplier,
     pokemon: discoveredNow.map(function (pokemon) { return pokemon.name; })
   };
 
@@ -713,7 +715,7 @@ function renderNature() {
     unlockHtml += '<article class="unlock-card">' +
       '<div class="unlock-card-top"><span>' + energyTypes[pokemon.type].icon + ' ' + pokemon.name + '</span>' +
       '<span>' + (pokemon.unlockMode === "explorations"
-        ? current + ' / ' + pokemon.unlockAt
+        ? formatNumber(current) + ' / ' + pokemon.unlockAt
         : pokemon.unlockMode === "allEnergies"
           ? '각 ' + pokemon.unlockAt
           : pokemon.unlockMode === "building"
@@ -738,7 +740,7 @@ function renderNature() {
 
   return '<section class="panel nature-panel">' +
     '<div class="section-heading"><div><p class="eyebrow">STARTING AREA</p><h1>' + (state.unlocks.village ? '마을' : '아무것도 없는 자연') + '</h1></div>' +
-    '<div class="click-counter">자연 탐색 ' + state.totalClicks + '회 ' + autoRateText + '</div></div>' +
+    '<div class="click-counter">자연 탐색 ' + formatNumber(state.totalClicks) + '회 ' + autoRateText + '</div></div>' +
     '<div class="nature-layout">' +
       '<div class="nature-main">' +
         '<button class="nature-scene" id="nature-scene" aria-label="자연에서 에너지 획득">' +
@@ -957,7 +959,20 @@ function updateLiveUI() {
 }
 
 function bindBuildingButtons() {
-  bindBuildingButtons();
+  const buildGreenMeadowButton = document.querySelector("#build-green-meadow");
+  if (buildGreenMeadowButton) buildGreenMeadowButton.addEventListener("click", buildGreenMeadow);
+
+  const buildCampfireButton = document.querySelector("#build-campfire");
+  if (buildCampfireButton) buildCampfireButton.addEventListener("click", buildCampfire);
+
+  const upgradeMoistButton = document.querySelector("#upgrade-moist-meadow");
+  if (upgradeMoistButton) upgradeMoistButton.addEventListener("click", function () { upgradeGreenMeadow("moistMeadow"); });
+
+  const upgradeShadeButton = document.querySelector("#upgrade-shade-meadow");
+  if (upgradeShadeButton) upgradeShadeButton.addEventListener("click", function () { upgradeGreenMeadow("shadeMeadow"); });
+
+  const buildFlowerbedButton = document.querySelector("#build-pretty-flowerbed");
+  if (buildFlowerbedButton) buildFlowerbedButton.addEventListener("click", buildPrettyFlowerbed);
 }
 
 function render() {
@@ -1031,12 +1046,31 @@ function render() {
   recordScrollState.activeTab = state.activeTab;
   lastRenderedLogSignature = latestSignature;
 }
-setInterval(function () {
-  const count = getAutoExplorerCount();
-  for (let i = 0; i < count; i += 1) {
-    gatherFromNature({ auto: true });
+let autoExplorationTimer = null;
+
+function scheduleNextAutoExploration() {
+  if (autoExplorationTimer) {
+    clearTimeout(autoExplorationTimer);
+    autoExplorationTimer = null;
   }
-}, 1000);
+
+  const rate = getAutoExplorationsPerSecond();
+
+  if (rate <= 0) {
+    autoExplorationTimer = setTimeout(scheduleNextAutoExploration, 250);
+    return;
+  }
+
+  const intervalMs = rate <= 10 ? (1000 / rate) : 100;
+  const multiplier = rate <= 10 ? 1 : (rate / 10);
+
+  autoExplorationTimer = setTimeout(function () {
+    gatherFromNature({ auto: true, multiplier: multiplier });
+    scheduleNextAutoExploration();
+  }, intervalMs);
+}
+
+scheduleNextAutoExploration();
 
 setInterval(function () {
   let changed = false;
