@@ -107,6 +107,11 @@ checkVillageUnlock(false);
 checkVillageGrowth(false);
 
 let lastRenderedLogSignature = getLatestLogSignature();
+let recordScrollState = {
+  activeTab: state.activeTab,
+  scrollTop: 0,
+  userScrolled: false
+};
 
 function cloneDefault() {
   return JSON.parse(JSON.stringify(defaultState));
@@ -591,7 +596,16 @@ function resetGame() {
 
 function setTab(tab) {
   if (tab === "village" && !state.unlocks.village) return;
+
+  const previousTab = state.activeTab;
   state.activeTab = tab;
+
+  if (previousTab !== tab) {
+    recordScrollState.activeTab = tab;
+    recordScrollState.userScrolled = false;
+    recordScrollState.scrollTop = 0;
+  }
+
   saveState();
   render();
 }
@@ -903,9 +917,14 @@ function renderContent() {
 function render() {
   const app = document.querySelector("#app");
   const oldRecordList = document.querySelector(".record-list");
-  const previousScrollTop = oldRecordList ? oldRecordList.scrollTop : 0;
+
+  if (oldRecordList && state.activeTab === "nature") {
+    recordScrollState.scrollTop = oldRecordList.scrollTop;
+  }
+
   const latestSignature = getLatestLogSignature();
   const hasNewLog = latestSignature !== lastRenderedLogSignature;
+  const returnedToNature = state.activeTab === "nature" && recordScrollState.activeTab !== "nature";
 
   if (!state.unlocks.village && state.activeTab === "village") state.activeTab = "nature";
 
@@ -942,13 +961,28 @@ function render() {
 
   const newRecordList = document.querySelector(".record-list");
   if (newRecordList) {
-    if (hasNewLog) {
+    const shouldSnapToBottom =
+      hasNewLog ||
+      returnedToNature ||
+      !recordScrollState.userScrolled;
+
+    if (shouldSnapToBottom) {
       newRecordList.scrollTop = newRecordList.scrollHeight;
+      recordScrollState.scrollTop = newRecordList.scrollTop;
+      recordScrollState.userScrolled = false;
     } else {
-      newRecordList.scrollTop = previousScrollTop;
+      newRecordList.scrollTop = recordScrollState.scrollTop;
     }
+
+    newRecordList.addEventListener("scroll", function () {
+      recordScrollState.scrollTop = newRecordList.scrollTop;
+      const distanceFromBottom =
+        newRecordList.scrollHeight - newRecordList.clientHeight - newRecordList.scrollTop;
+      recordScrollState.userScrolled = distanceFromBottom > 2;
+    });
   }
 
+  recordScrollState.activeTab = state.activeTab;
   lastRenderedLogSignature = latestSignature;
 }
 setInterval(function () {
