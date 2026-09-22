@@ -30,7 +30,7 @@ const buildingData = {
     id: "greenMeadow",
     name: "초록 풀숲",
     description: "매초 풀 에너지 +0.1",
-    cost: { grass: 50, water: 25 },
+    cost: { grass: 25, water: 15 },
     production: { grass: 0.1 }
   }
 };
@@ -516,7 +516,7 @@ function renderVillage() {
         '<div class="building-body">' +
           '<div class="building-title-row"><h2>' + building.name + '</h2><span>' + (built ? '건설 완료' : '건설 가능') + '</span></div>' +
           '<p>' + building.description + '</p>' +
-          '<div class="building-cost"><span>🌿 풀 50</span><span>💧 물 25</span></div>' +
+          '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 15</span></div>' +
           (built
             ? '<div class="built-status">매초 🌿 풀 에너지 +0.1 생산 중</div>'
             : '<button id="build-green-meadow" ' + (affordable ? '' : 'disabled') + '>' +
