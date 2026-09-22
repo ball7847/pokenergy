@@ -1,42 +1,9 @@
 # Pokenergy
 
-GitHub Pages에 그대로 배포하는 정적 웹게임 프로젝트입니다. 별도의 빌드 과정이나 npm 설치 없이 저장소 루트의 `index.html`을 GitHub Pages가 실행합니다.
+Pokenergy is being rebuilt from scratch as an idle / incremental game.
 
-## 배포
+The repository name and GitHub Pages address are retained, while the previous game implementation has been archived.
 
-1. 이 폴더의 파일을 GitHub 저장소 최상단에 업로드합니다.
-2. Settings → Pages → Build and deployment에서 `Deploy from a branch`를 선택합니다.
-3. Branch는 `main`, Folder는 `/(root)`로 설정합니다.
-4. 배포가 완료된 뒤 GitHub Pages 주소로 접속합니다.
+## Status
 
-## v0.7 변경점
-
-- 포탈 투입 에너지 영역을 확대하고 기록 영역을 줄였습니다.
-- 투입 에너지를 한 줄에 2종씩 표시합니다.
-- 도감 상세창 닫기 동작을 독립 함수로 분리하고 X/배경/Escape로 확실히 닫히도록 수정했습니다.
-- 포켓몬 이름의 받침 여부를 판별하는 한국어 조사 시스템을 추가했습니다.
-- 일반 기록의 `이(가)` 표현을 실제 `이/가` 조사로 자동 변환합니다.
-- 기록 저장 순서를 `오래된 기록 → 새로운 기록`으로 변경했습니다.
-- 새 기록이 추가되면 해당 기록창이 자동으로 맨 아래 새 로그 위치로 이동합니다.
-- 기록 변화만으로 포탈 탭 전체 DOM을 다시 생성하지 않도록 수정했습니다.
-- 세이브 버전은 v4이며 v3 기록 순서를 자동 변환합니다.
-
-## 구조
-
-- `src/data/` : 포켓몬, 타입, 스토리 데이터
-- `src/core/` : 게임 상태와 런타임
-- `src/systems/` : 생산, 조건, 효과, 포탈, 저장 시스템
-- `src/ui/` : 화면 렌더링
-- `src/utils/` : 숫자 포맷, 한국어 조사 등 공통 유틸리티
-- `tests/` : 핵심 시스템 테스트
-
-## v0.7 변경사항
-- 포탈 화면 좌/우 영역 동일 폭으로 조정해 포탈을 중앙 배치
-- 새 게임은 포켓몬 0마리로 시작, 도입 마지막 기록 직후 메타몽 1마리 획득
-- 도입 기록 간격 1.5초
-- 도감 상세 모달을 매 UI 틱 재생성하지 않도록 수정해 X 닫기 버그 근본 해결
-- 메타몽 포탈 조건: 노말만 사용 + 노말 10 이상
-- 꼬렛: 노말 100 이상
-- 이상해씨/파이리/꼬부기: 노말 1000 이상
-- 꼬렛 [의욕]: 매초 10% 확률로 꼬렛 수만큼 노말에너지 추가 획득
-- 에너지 생산을 프레임 비례 누적이 아닌 1초 단위 처리로 변경
+New foundation initialized on 2026-09-22.
