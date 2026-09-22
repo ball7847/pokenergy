@@ -1,9 +1,15 @@
 # Pokenergy
 
-Pokenergy is being rebuilt from scratch as an idle / incremental game.
+포켓몬과 함께 자연에서 에너지를 모으고, 점차 정착지를 발전시키는 방치형/증분형 웹게임입니다.
 
-The repository name and GitHub Pages address are retained, while the previous game implementation has been archived.
+## 현재 구현
 
-## Status
+- 자연 클릭 시 풀/불꽃/물 에너지 중 하나를 무작위 획득
+- 풀 10: 이상해씨 출현
+- 불꽃 40: 파이리 출현
+- 물 70: 꼬부기 출현
+- 발견한 포켓몬은 해당 타입의 자연 획득량을 +1
+- 자연 / 도감 / 설정 탭
+- 브라우저 자동 저장 및 진행도 초기화
 
-New foundation initialized on 2026-09-22.
+GitHub Pages에서 별도 빌드 없이 실행되는 정적 웹 구조를 사용합니다.
