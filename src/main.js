@@ -23,7 +23,8 @@ const pokemonData = [
   { id: "pidgey", name: "구구", type: "flying", unlockType: "bug", unlockAt: 10, ability: "바람일으키기", effect: "자연에서 비행 에너지 획득량 +0.1" },
   { id: "spearow", name: "깨비참", type: "flying", unlockType: "normal", unlockAt: 210, ability: "쪼기", effect: "자연에서 10% 확률로 비행 에너지 +0.1" },
   { id: "weedle", name: "뿔충이", type: "bug", unlockType: "bug", unlockAt: 13, ability: "벌레의 알림", effect: "자연에서 벌레 에너지 획득량 +0.1" },
-  { id: "eevee", name: "이브이", type: "normal", unlockMode: "allEnergies", unlockTypes: ["grass", "water", "fire"], unlockAt: 133, ability: "적응력", effect: "자연에서 풀, 물, 불꽃 에너지를 획득합니다." }
+  { id: "eevee", name: "이브이", type: "normal", unlockMode: "allEnergies", unlockTypes: ["grass", "water", "fire"], unlockAt: 133, ability: "적응력", effect: "자연에서 풀, 물, 불꽃 에너지를 획득합니다." },
+  { id: "combee", name: "세꿀버리", type: "bug", unlockMode: "building", unlockBuilding: "prettyFlowerbed", ability: "꿀모으기", effect: "자연에서 벌레 에너지와 비행 에너지 획득량 +0.1" }
 ];
 
 const starterIds = ["bulbasaur", "charmander", "squirtle"];
@@ -49,6 +50,20 @@ const buildingData = {
     description: "매초 풀 에너지 +0.2 및 물 에너지 +0.2",
     cost: { grass: 25, water: 25 },
     production: { grass: 0.2, water: 0.2 }
+  },
+  shadeMeadow: {
+    id: "shadeMeadow",
+    name: "나무그늘의 풀숲",
+    description: "매초 풀 +0.3, 물 +0.3, 벌레 +0.1, 비행 +0.1",
+    cost: { grass: 600, water: 600, bug: 60, flying: 30 },
+    production: { grass: 0.3, water: 0.3, bug: 0.1, flying: 0.1 }
+  },
+  prettyFlowerbed: {
+    id: "prettyFlowerbed",
+    name: "예쁜 꽃밭",
+    description: "벌레 에너지와 비행 에너지 획득 확률 +10%",
+    cost: { grass: 300, water: 300, normal: 1000 },
+    production: {}
   }
 };
 
@@ -60,13 +75,38 @@ const defaultState = {
   totalClicks: 0,
   gameStartedAt: Date.now(),
   logs: [],
-  unlocks: { village: false, greenMeadow: false, campfire: false, moistMeadow: false },
-  buildings: { greenMeadow: false, campfire: false, moistMeadow: false },
+  unlocks: {
+    village: false,
+    expandedVillage: false,
+    greenMeadow: false,
+    additionalGreenMeadow: false,
+    campfire: false,
+    moistMeadow: false,
+    shadeMeadow: false,
+    prettyFlowerbed: false
+  },
+  buildings: {
+    greenMeadow: 0,
+    campfire: 0,
+    moistMeadow: 0,
+    shadeMeadow: 0,
+    prettyFlowerbed: 0
+  },
+  buildCounts: {
+    greenMeadow: 0,
+    campfire: 0,
+    moistMeadow: 0,
+    shadeMeadow: 0,
+    prettyFlowerbed: 0
+  },
   seenEnergies: []
 };
 
 let state = loadState();
 checkVillageUnlock(false);
+checkVillageGrowth(false);
+
+let lastRenderedLogSignature = getLatestLogSignature();
 
 function cloneDefault() {
   return JSON.parse(JSON.stringify(defaultState));
@@ -142,6 +182,17 @@ function addLog(message) {
   if (state.logs.length > 200) state.logs = state.logs.slice(-200);
 }
 
+function getLatestLogSignature() {
+  if (!state || !state.logs || !state.logs.length) return "";
+  const last = state.logs[state.logs.length - 1];
+  return String(last.elapsed) + "|" + last.message;
+}
+
+function normalizeBuildingCount(value) {
+  if (typeof value === "number") return Math.max(0, Math.floor(value));
+  return value ? 1 : 0;
+}
+
 function migrateSave(saved) {
   const migrated = cloneDefault();
 
@@ -159,7 +210,21 @@ function migrateSave(saved) {
       })
     : [];
   migrated.unlocks = { ...migrated.unlocks, ...(saved.unlocks || {}) };
-  migrated.buildings = { ...migrated.buildings, ...(saved.buildings || {}) };
+
+  const savedBuildings = saved.buildings || {};
+  Object.keys(migrated.buildings).forEach(function (id) {
+    migrated.buildings[id] = normalizeBuildingCount(savedBuildings[id]);
+  });
+
+  const savedBuildCounts = saved.buildCounts || {};
+  Object.keys(migrated.buildCounts).forEach(function (id) {
+    const currentCount = migrated.buildings[id];
+    migrated.buildCounts[id] = Math.max(
+      normalizeBuildingCount(savedBuildCounts[id]),
+      currentCount
+    );
+  });
+
   migrated.seenEnergies = Array.isArray(saved.seenEnergies) ? saved.seenEnergies : [];
   Object.entries(migrated.energies).forEach(function (entry) {
     if (entry[1] > 0 && !migrated.seenEnergies.includes(entry[0])) migrated.seenEnergies.push(entry[0]);
@@ -238,20 +303,14 @@ function getAutoExplorationsPerSecond() {
 
 function getPassiveProduction(type) {
   let amount = 0;
-  if (state.buildings.moistMeadow) {
-    if (type === "grass") amount += buildingData.moistMeadow.production.grass;
-    if (type === "water") amount += buildingData.moistMeadow.production.water;
-  } else if (state.buildings.greenMeadow && type === "grass") {
-    amount += buildingData.greenMeadow.production.grass;
-  }
 
-  if (state.buildings.campfire && type === "fire") {
-    amount += buildingData.campfire.production.fire;
-  }
+  amount += (state.buildings.greenMeadow || 0) * (buildingData.greenMeadow.production[type] || 0);
+  amount += (state.buildings.moistMeadow || 0) * (buildingData.moistMeadow.production[type] || 0);
+  amount += (state.buildings.shadeMeadow || 0) * (buildingData.shadeMeadow.production[type] || 0);
+  amount += (state.buildings.campfire || 0) * (buildingData.campfire.production[type] || 0);
 
   return roundEnergy(amount);
 }
-
 function getFixedAutoExplorationProduction(type) {
   const autoExplorations = getAutoExplorationsPerSecond();
   if (autoExplorations <= 0) return 0;
@@ -289,7 +348,7 @@ function checkVillageUnlock(writeLog = true) {
   state.unlocks.campfire = true;
 
   if (writeLog) {
-    addLog("포켓몬이 모여 마을을 이루었다!\n▶ 마을 탭 해금");
+    addLog("포켓몬이 5마리 모여 작은 마을을 이뤘다!");
     addLog("마을에 초록 풀숲을 만들 수 있다!");
     addLog("마을에 모닥불을 만들 수 있다!");
   }
@@ -298,10 +357,30 @@ function checkVillageUnlock(writeLog = true) {
   return true;
 }
 
+function checkVillageGrowth(writeLog = true) {
+  if (state.unlocks.expandedVillage || state.discovered.length < 10) return false;
+
+  state.unlocks.expandedVillage = true;
+  state.unlocks.additionalGreenMeadow = true;
+  state.unlocks.shadeMeadow = true;
+  state.unlocks.prettyFlowerbed = true;
+
+  if (writeLog) {
+    addLog("포켓몬이 10마리 모여 마을이 커졌다!");
+    addLog("초록 풀숲을 추가로 건설할 수 있다!");
+    addLog("초록 풀숲을 나무그늘의 풀숲으로 업그레이드할 수 있다!");
+    addLog("마을에 예쁜 꽃밭을 만들 수 있다!");
+  }
+
+  saveState();
+  return true;
+}
 function discoverPokemon() {
   const found = [];
 
   pokemonData.forEach(function (pokemon) {
+    if (pokemon.unlockMode === "building") return;
+
     const unlockType = pokemon.unlockType || pokemon.type;
     let conditionMet = false;
 
@@ -322,6 +401,7 @@ function discoverPokemon() {
   });
 
   checkVillageUnlock(true);
+  checkVillageGrowth(true);
   return found;
 }
 
@@ -351,16 +431,24 @@ function gatherFromNature(options) {
 
   if (normalAmount > 0) addEnergy("normal", normalAmount);
 
+  const flowerbedChanceBonus = (state.buildings.prettyFlowerbed || 0) * 0.1;
+
   let bugAmount = 0;
-  if (hasPokemon("caterpie") && Math.random() < 0.1) {
-    bugAmount = 0.1 + (hasPokemon("weedle") ? 0.1 : 0);
+  const bugChance = (hasPokemon("caterpie") ? 0.1 : 0) + flowerbedChanceBonus;
+  if (bugChance > 0 && Math.random() < Math.min(1, bugChance)) {
+    bugAmount = 0.1 +
+      (hasPokemon("weedle") ? 0.1 : 0) +
+      (hasPokemon("combee") ? 0.1 : 0);
     bugAmount = roundEnergy(bugAmount);
     addEnergy("bug", bugAmount);
   }
 
   let flyingAmount = 0;
-  if (hasPokemon("spearow") && Math.random() < 0.1) {
-    flyingAmount = 0.1 + (hasPokemon("pidgey") ? 0.1 : 0);
+  const flyingChance = (hasPokemon("spearow") ? 0.1 : 0) + flowerbedChanceBonus;
+  if (flyingChance > 0 && Math.random() < Math.min(1, flyingChance)) {
+    flyingAmount = 0.1 +
+      (hasPokemon("pidgey") ? 0.1 : 0) +
+      (hasPokemon("combee") ? 0.1 : 0);
     flyingAmount = roundEnergy(flyingAmount);
     addEnergy("flying", flyingAmount);
   }
@@ -388,50 +476,106 @@ function canAfford(cost) {
   });
 }
 
-function buildGreenMeadow() {
-  const building = buildingData.greenMeadow;
-  if (!state.unlocks.greenMeadow || state.buildings.greenMeadow || !canAfford(building.cost)) return;
+function scaleCost(cost, exponent) {
+  const multiplier = Math.pow(10, exponent);
+  const scaled = {};
+  Object.entries(cost).forEach(function (entry) {
+    scaled[entry[0]] = roundEnergy(entry[1] * multiplier);
+  });
+  return scaled;
+}
 
-  Object.entries(building.cost).forEach(function (entry) {
+function getNextCost(buildingId) {
+  return scaleCost(buildingData[buildingId].cost, state.buildCounts[buildingId] || 0);
+}
+
+function spendCost(cost) {
+  Object.entries(cost).forEach(function (entry) {
     addEnergy(entry[0], -entry[1]);
   });
+}
 
-  state.buildings.greenMeadow = true;
-  state.unlocks.moistMeadow = true;
-  addLog("마을에 초록 풀숲이 생겼다!");
-  addLog("초록 풀숲을 촉촉한 풀숲으로 업그레이드할 수 있다!");
+function buildGreenMeadow() {
+  const currentPurchases = state.buildCounts.greenMeadow || 0;
+  if (!state.unlocks.greenMeadow) return;
+  if (currentPurchases >= 1 && !state.unlocks.additionalGreenMeadow) return;
+
+  const cost = getNextCost("greenMeadow");
+  if (!canAfford(cost)) return;
+
+  spendCost(cost);
+  state.buildings.greenMeadow += 1;
+  state.buildCounts.greenMeadow += 1;
+
+  if (!state.unlocks.moistMeadow) {
+    state.unlocks.moistMeadow = true;
+    addLog("마을에 초록 풀숲이 생겼다!");
+    addLog("초록 풀숲을 촉촉한 풀숲으로 업그레이드할 수 있다!");
+  } else {
+    addLog("마을에 초록 풀숲이 하나 더 생겼다!");
+  }
+
   saveState();
   render();
 }
 
 function buildCampfire() {
-  const building = buildingData.campfire;
-  if (!state.unlocks.campfire || state.buildings.campfire || !canAfford(building.cost)) return;
+  if (!state.unlocks.campfire || state.buildings.campfire > 0) return;
 
-  Object.entries(building.cost).forEach(function (entry) {
-    addEnergy(entry[0], -entry[1]);
-  });
+  const cost = getNextCost("campfire");
+  if (!canAfford(cost)) return;
 
-  state.buildings.campfire = true;
+  spendCost(cost);
+  state.buildings.campfire += 1;
+  state.buildCounts.campfire += 1;
   addLog("마을에 모닥불이 생겼다!");
   saveState();
   render();
 }
 
-function buildMoistMeadow() {
-  const building = buildingData.moistMeadow;
-  if (!state.unlocks.moistMeadow || state.buildings.moistMeadow || !state.buildings.greenMeadow || !canAfford(building.cost)) return;
+function upgradeGreenMeadow(targetId) {
+  if (state.buildings.greenMeadow <= 0) return;
+  if (!state.unlocks[targetId]) return;
 
-  Object.entries(building.cost).forEach(function (entry) {
-    addEnergy(entry[0], -entry[1]);
-  });
+  const cost = getNextCost(targetId);
+  if (!canAfford(cost)) return;
 
-  state.buildings.moistMeadow = true;
-  addLog("초록 풀숲이 촉촉한 풀숲으로 바뀌었다!");
+  spendCost(cost);
+  state.buildings.greenMeadow -= 1;
+  state.buildings[targetId] += 1;
+  state.buildCounts[targetId] += 1;
+
+  if (targetId === "moistMeadow") {
+    addLog("초록 풀숲이 촉촉한 풀숲으로 바뀌었다!");
+  } else if (targetId === "shadeMeadow") {
+    addLog("초록 풀숲이 나무그늘의 풀숲으로 바뀌었다!");
+  }
+
   saveState();
   render();
 }
 
+function buildPrettyFlowerbed() {
+  if (!state.unlocks.prettyFlowerbed || state.buildings.prettyFlowerbed > 0) return;
+
+  const cost = getNextCost("prettyFlowerbed");
+  if (!canAfford(cost)) return;
+
+  spendCost(cost);
+  state.buildings.prettyFlowerbed += 1;
+  state.buildCounts.prettyFlowerbed += 1;
+  addLog("마을에 예쁜 꽃밭이 생겼다!");
+
+  if (!hasPokemon("combee")) {
+    const combee = pokemonData.find(function (pokemon) { return pokemon.id === "combee"; });
+    state.discovered.push("combee");
+    addLog("어디선가 " + withParticle(combee.name, "이/가") + " 나타났다!");
+  }
+
+  checkVillageGrowth(true);
+  saveState();
+  render();
+}
 function resetGame() {
   if (!window.confirm("현재 진행도를 모두 초기화할까요?")) return;
 
@@ -497,27 +641,13 @@ function renderLogs() {
     return '<div class="log-empty">아직 특별한 기록이 없습니다.</div>';
   }
 
-  return state.logs.slice().reverse().map(function (entry) {
+  return state.logs.map(function (entry) {
     return '<div class="log-entry"><span class="log-time">[' + formatElapsed(entry.elapsed) + ']</span> ' +
       '<span class="log-message">' + entry.message.replace(/\n/g, "<br>") + '</span></div>';
   }).join("");
 }
 
 function renderNature() {
-  const visiblePokemon = pokemonData.filter(function (pokemon) {
-    return hasPokemon(pokemon.id);
-  });
-
-  let pokemonHtml = "";
-  if (visiblePokemon.length) {
-    pokemonHtml = '<div class="pokemon-meadow">';
-    visiblePokemon.forEach(function (pokemon) {
-      pokemonHtml += '<div class="pokemon-token type-' + pokemon.type + '">' +
-        '<span class="pokemon-dot"></span><strong>' + pokemon.name + '</strong></div>';
-    });
-    pokemonHtml += '</div>';
-  }
-
   let gainHtml = '<div class="gain-message muted">자연을 눌러 에너지를 모아보세요.</div>';
   if (state.lastGain) {
     const discovery = state.lastGain.pokemon.length
@@ -553,8 +683,12 @@ function renderNature() {
       ? state.totalClicks
       : pokemon.unlockMode === "allEnergies"
         ? Math.min.apply(null, pokemon.unlockTypes.map(function (type) { return state.energies[type]; }))
-        : state.energies[unlockType];
-    const progress = Math.min(100, (current / pokemon.unlockAt) * 100);
+        : pokemon.unlockMode === "building"
+          ? (state.buildings[pokemon.unlockBuilding] || 0)
+          : state.energies[unlockType];
+    const progress = pokemon.unlockMode === "building"
+      ? (current > 0 ? 100 : 0)
+      : Math.min(100, (current / pokemon.unlockAt) * 100);
 
     unlockHtml += '<article class="unlock-card">' +
       '<div class="unlock-card-top"><span>' + energyTypes[pokemon.type].icon + ' ' + pokemon.name + '</span>' +
@@ -562,14 +696,18 @@ function renderNature() {
         ? current + ' / ' + pokemon.unlockAt
         : pokemon.unlockMode === "allEnergies"
           ? '각 ' + pokemon.unlockAt
-          : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
+          : pokemon.unlockMode === "building"
+            ? '건설 시 출현'
+            : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
       '<p><strong>[' + pokemon.ability + ']</strong> ' +
       (pokemon.unlockMode === "explorations"
         ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
         : pokemon.unlockMode === "allEnergies"
           ? '풀, 물, 불꽃 에너지가 각각 ' + pokemon.unlockAt + ' 이상일 때 출현'
-          : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+          : pokemon.unlockMode === "building"
+            ? buildingData[pokemon.unlockBuilding].name + ' 건설 시 출현'
+            : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></article>';
   });
 
@@ -579,7 +717,7 @@ function renderNature() {
     : "";
 
   return '<section class="panel nature-panel">' +
-    '<div class="section-heading"><div><p class="eyebrow">STARTING AREA</p><h1>아무것도 없는 자연</h1></div>' +
+    '<div class="section-heading"><div><p class="eyebrow">STARTING AREA</p><h1>' + (state.unlocks.village ? '마을' : '아무것도 없는 자연') + '</h1></div>' +
     '<div class="click-counter">자연 탐색 ' + state.totalClicks + '회 ' + autoRateText + '</div></div>' +
     '<div class="nature-layout">' +
       '<div class="nature-main">' +
@@ -588,7 +726,6 @@ function renderNature() {
           '<div class="mountain mountain-back"></div><div class="mountain mountain-front"></div>' +
           '<div class="river"></div><div class="grassland"></div>' +
           '<div class="flowers flowers-a">✿ ✦ ✿</div><div class="flowers flowers-b">✦ ✿</div>' +
-          pokemonHtml +
           '<div class="nature-prompt"><strong>자연 탐색</strong><span>클릭해서 에너지를 획득</span></div>' +
         '</button>' +
         gainHtml +
@@ -614,7 +751,9 @@ function renderDex() {
           ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
           : pokemon.unlockMode === "allEnergies"
             ? '풀, 물, 불꽃 에너지가 각각 ' + pokemon.unlockAt + ' 이상일 때 출현'
-            : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+            : pokemon.unlockMode === "building"
+              ? buildingData[pokemon.unlockBuilding].name + ' 건설 시 출현'
+              : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></div></article>';
   });
 
@@ -625,82 +764,125 @@ function renderDex() {
 }
 
 function renderVillage() {
-  const green = buildingData.greenMeadow;
-  const campfire = buildingData.campfire;
-  const moist = buildingData.moistMeadow;
+  function costHtml(cost) {
+    return Object.entries(cost).map(function (entry) {
+      const info = energyTypes[entry[0]];
+      return '<span>' + info.icon + ' ' + info.name + ' ' + formatNumber(entry[1]) + '</span>';
+    }).join('');
+  }
 
-  const greenBuilt = state.buildings.greenMeadow;
-  const moistBuilt = state.buildings.moistMeadow;
-  const campfireBuilt = state.buildings.campfire;
+  function countSuffix(count) {
+    return count > 1 ? '(' + count + ')' : '';
+  }
 
-  const greenAffordable = canAfford(green.cost);
-  const campfireAffordable = canAfford(campfire.cost);
-  const moistAffordable = canAfford(moist.cost);
+  const cards = [];
 
-  let meadowCard = "";
+  if (state.unlocks.greenMeadow || state.buildings.greenMeadow > 0) {
+    const count = state.buildings.greenMeadow;
+    const nextCost = getNextCost("greenMeadow");
+    const canBuildMore = (state.buildCounts.greenMeadow === 0) || state.unlocks.additionalGreenMeadow;
 
-  if (moistBuilt) {
-    meadowCard =
+    let actions = '';
+    if (canBuildMore) {
+      actions += '<div class="building-cost">' + costHtml(nextCost) + '</div>' +
+        '<button class="build-action green-action" id="build-green-meadow" ' + (canAfford(nextCost) ? '' : 'disabled') + '>' +
+          (count > 0 ? '초록 풀숲 추가 건설' : '초록 풀숲 건설') +
+        '</button>';
+    }
+
+    if (count > 0 && state.unlocks.moistMeadow) {
+      const moistCost = getNextCost("moistMeadow");
+      actions += '<div class="upgrade-box"><strong>촉촉한 풀숲으로 업그레이드</strong>' +
+        '<div class="building-cost">' + costHtml(moistCost) + '</div>' +
+        '<button class="build-action water-action" id="upgrade-moist-meadow" ' + (canAfford(moistCost) ? '' : 'disabled') + '>1개 업그레이드</button></div>';
+    }
+
+    if (count > 0 && state.unlocks.shadeMeadow) {
+      const shadeCost = getNextCost("shadeMeadow");
+      actions += '<div class="upgrade-box"><strong>나무그늘의 풀숲으로 업그레이드</strong>' +
+        '<div class="building-cost">' + costHtml(shadeCost) + '</div>' +
+        '<button class="build-action shade-action" id="upgrade-shade-meadow" ' + (canAfford(shadeCost) ? '' : 'disabled') + '>1개 업그레이드</button></div>';
+    }
+
+    cards.push(
+      '<article class="building-card ' + (count > 0 ? 'built' : '') + '">' +
+        '<div class="building-visual meadow-visual">🌿</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>초록 풀숲' + countSuffix(count) + '</h2><span>' + (count > 0 ? '보유 ' + count + '개' : '건설 가능') + '</span></div>' +
+          '<p>개당 매초 풀 에너지 +0.2</p>' +
+          (count > 0 ? '<div class="built-status">총 🌿 풀 +' + formatNumber(count * 0.2) + '/s</div>' : '') +
+          actions +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  const moistCount = state.buildings.moistMeadow || 0;
+  if (moistCount > 0) {
+    cards.push(
       '<article class="building-card built">' +
         '<div class="building-visual moist-meadow-visual">🌿💧</div>' +
         '<div class="building-body">' +
-          '<div class="building-title-row"><h2>촉촉한 풀숲</h2><span>업그레이드 완료</span></div>' +
-          '<p>' + moist.description + '</p>' +
-          '<div class="built-status">매초 🌿 풀 +0.2 · 💧 물 +0.2 생산 중</div>' +
+          '<div class="building-title-row"><h2>촉촉한 풀숲' + countSuffix(moistCount) + '</h2><span>보유 ' + moistCount + '개</span></div>' +
+          '<p>개당 매초 풀 +0.2, 물 +0.2</p>' +
+          '<div class="built-status">총 🌿 풀 +' + formatNumber(moistCount * 0.2) + '/s · 💧 물 +' + formatNumber(moistCount * 0.2) + '/s</div>' +
         '</div>' +
-      '</article>';
-  } else if (greenBuilt) {
-    meadowCard =
-      '<article class="building-card built">' +
-        '<div class="building-visual meadow-visual">🌿</div>' +
-        '<div class="building-body">' +
-          '<div class="building-title-row"><h2>초록 풀숲</h2><span>건설 완료</span></div>' +
-          '<p>' + green.description + '</p>' +
-          '<div class="built-status">매초 🌿 풀 에너지 +0.2 생산 중</div>' +
-          (state.unlocks.moistMeadow
-            ? '<div class="upgrade-box"><strong>촉촉한 풀숲으로 업그레이드</strong>' +
-              '<p>' + moist.description + '</p>' +
-              '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 25</span></div>' +
-              '<button id="build-moist-meadow" ' + (moistAffordable ? '' : 'disabled') + '>' +
-                (moistAffordable ? '촉촉한 풀숲으로 업그레이드' : '에너지가 부족합니다') +
-              '</button></div>'
-            : '') +
-        '</div>' +
-      '</article>';
-  } else {
-    meadowCard =
-      '<article class="building-card">' +
-        '<div class="building-visual meadow-visual">🌿</div>' +
-        '<div class="building-body">' +
-          '<div class="building-title-row"><h2>' + green.name + '</h2><span>건설 가능</span></div>' +
-          '<p>' + green.description + '</p>' +
-          '<div class="building-cost"><span>🌿 풀 25</span><span>💧 물 15</span></div>' +
-          '<button id="build-green-meadow" ' + (greenAffordable ? '' : 'disabled') + '>' +
-            (greenAffordable ? '초록 풀숲 건설' : '에너지가 부족합니다') +
-          '</button>' +
-        '</div>' +
-      '</article>';
+      '</article>'
+    );
   }
 
-  const campfireCard =
-    '<article class="building-card ' + (campfireBuilt ? 'built' : '') + '">' +
-      '<div class="building-visual campfire-visual">🔥</div>' +
-      '<div class="building-body">' +
-        '<div class="building-title-row"><h2>' + campfire.name + '</h2><span>' + (campfireBuilt ? '건설 완료' : '건설 가능') + '</span></div>' +
-        '<p>' + campfire.description + '</p>' +
-        '<div class="building-cost"><span>🌿 풀 25</span><span>🔥 불꽃 25</span></div>' +
-        (campfireBuilt
-          ? '<div class="built-status fire-status">매초 🔥 불꽃 에너지 +0.2 생산 중</div>'
-          : '<button id="build-campfire" ' + (campfireAffordable ? '' : 'disabled') + '>' +
-              (campfireAffordable ? '모닥불 건설' : '에너지가 부족합니다') +
-            '</button>') +
-      '</div>' +
-    '</article>';
+  const shadeCount = state.buildings.shadeMeadow || 0;
+  if (shadeCount > 0) {
+    cards.push(
+      '<article class="building-card built">' +
+        '<div class="building-visual shade-meadow-visual">🌳</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>나무그늘의 풀숲' + countSuffix(shadeCount) + '</h2><span>보유 ' + shadeCount + '개</span></div>' +
+          '<p>개당 매초 풀 +0.3, 물 +0.3, 벌레 +0.1, 비행 +0.1</p>' +
+          '<div class="built-status">총 🌿 풀 +' + formatNumber(shadeCount * 0.3) + '/s · 💧 물 +' + formatNumber(shadeCount * 0.3) + '/s · 🐛 벌레 +' + formatNumber(shadeCount * 0.1) + '/s · 🪽 비행 +' + formatNumber(shadeCount * 0.1) + '/s</div>' +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  if (state.unlocks.campfire || state.buildings.campfire > 0) {
+    const count = state.buildings.campfire || 0;
+    const cost = getNextCost("campfire");
+    cards.push(
+      '<article class="building-card ' + (count > 0 ? 'built' : '') + '">' +
+        '<div class="building-visual campfire-visual">🔥</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>모닥불' + countSuffix(count) + '</h2><span>' + (count > 0 ? '건설 완료' : '건설 가능') + '</span></div>' +
+          '<p>매초 불꽃 에너지 +0.2</p>' +
+          (count > 0
+            ? '<div class="built-status fire-status">총 🔥 불꽃 +' + formatNumber(count * 0.2) + '/s</div>'
+            : '<div class="building-cost">' + costHtml(cost) + '</div><button class="build-action fire-action" id="build-campfire" ' + (canAfford(cost) ? '' : 'disabled') + '>모닥불 건설</button>') +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  if (state.unlocks.prettyFlowerbed || state.buildings.prettyFlowerbed > 0) {
+    const count = state.buildings.prettyFlowerbed || 0;
+    const cost = getNextCost("prettyFlowerbed");
+    cards.push(
+      '<article class="building-card ' + (count > 0 ? 'built' : '') + '">' +
+        '<div class="building-visual flowerbed-visual">🌸</div>' +
+        '<div class="building-body">' +
+          '<div class="building-title-row"><h2>예쁜 꽃밭' + countSuffix(count) + '</h2><span>' + (count > 0 ? '건설 완료' : '건설 가능') + '</span></div>' +
+          '<p>벌레 에너지와 비행 에너지 획득 확률 +10%</p>' +
+          (count > 0
+            ? '<div class="built-status flower-status">🐛 벌레 / 🪽 비행 획득 확률 +10%</div>'
+            : '<div class="building-cost">' + costHtml(cost) + '</div><button class="build-action flower-action" id="build-pretty-flowerbed" ' + (canAfford(cost) ? '' : 'disabled') + '>예쁜 꽃밭 건설</button>') +
+        '</div>' +
+      '</article>'
+    );
+  }
 
   return '<section class="panel village-panel">' +
     '<div class="section-heading"><div><p class="eyebrow">VILLAGE</p><h1>마을</h1></div></div>' +
-    '<div class="village-intro"><h2>보금자리</h2><p>포켓몬들이 살아갈 장소를 만들어 마을의 에너지 생산을 늘립니다.</p></div>' +
-    '<div class="building-grid">' + meadowCard + campfireCard + '</div>' +
+    '<div class="village-intro"><h2>보금자리</h2><p>같은 보금자리는 수량을 합쳐 표시하며, 생산량도 합산됩니다.</p></div>' +
+    '<div class="building-grid">' + cards.join('') + '</div>' +
     '</section>';
 }
 function renderSettings() {
@@ -720,6 +902,10 @@ function renderContent() {
 
 function render() {
   const app = document.querySelector("#app");
+  const oldRecordList = document.querySelector(".record-list");
+  const previousScrollTop = oldRecordList ? oldRecordList.scrollTop : 0;
+  const latestSignature = getLatestLogSignature();
+  const hasNewLog = latestSignature !== lastRenderedLogSignature;
 
   if (!state.unlocks.village && state.activeTab === "village") state.activeTab = "nature";
 
@@ -742,13 +928,29 @@ function render() {
   const buildCampfireButton = document.querySelector("#build-campfire");
   if (buildCampfireButton) buildCampfireButton.addEventListener("click", buildCampfire);
 
-  const buildMoistMeadowButton = document.querySelector("#build-moist-meadow");
-  if (buildMoistMeadowButton) buildMoistMeadowButton.addEventListener("click", buildMoistMeadow);
+  const upgradeMoistButton = document.querySelector("#upgrade-moist-meadow");
+  if (upgradeMoistButton) upgradeMoistButton.addEventListener("click", function () { upgradeGreenMeadow("moistMeadow"); });
+
+  const upgradeShadeButton = document.querySelector("#upgrade-shade-meadow");
+  if (upgradeShadeButton) upgradeShadeButton.addEventListener("click", function () { upgradeGreenMeadow("shadeMeadow"); });
+
+  const buildFlowerbedButton = document.querySelector("#build-pretty-flowerbed");
+  if (buildFlowerbedButton) buildFlowerbedButton.addEventListener("click", buildPrettyFlowerbed);
 
   const resetButton = document.querySelector("#reset-button");
   if (resetButton) resetButton.addEventListener("click", resetGame);
-}
 
+  const newRecordList = document.querySelector(".record-list");
+  if (newRecordList) {
+    if (hasNewLog) {
+      newRecordList.scrollTop = newRecordList.scrollHeight;
+    } else {
+      newRecordList.scrollTop = previousScrollTop;
+    }
+  }
+
+  lastRenderedLogSignature = latestSignature;
+}
 setInterval(function () {
   const count = getAutoExplorerCount();
   for (let i = 0; i < count; i += 1) {

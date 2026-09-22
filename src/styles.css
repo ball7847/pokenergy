@@ -613,3 +613,45 @@ h1 {
   background: #fff0e6;
   color: #9a5a32;
 }
+
+.shade-meadow-visual {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(78, 125, 67, .95) 0 20%, transparent 21%),
+    radial-gradient(circle at 35% 32%, rgba(104, 151, 80, .9) 0 18%, transparent 19%),
+    linear-gradient(180deg, #dceccb 0%, #9ccc78 58%, #79b7c8 100%);
+}
+
+.flowerbed-visual {
+  background:
+    radial-gradient(circle at 20% 60%, #f7b6c8 0 8%, transparent 9%),
+    radial-gradient(circle at 45% 50%, #f8d17c 0 8%, transparent 9%),
+    radial-gradient(circle at 70% 62%, #c9a7ef 0 8%, transparent 9%),
+    linear-gradient(180deg, #eef6dd, #9fd076);
+}
+
+.build-action {
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.green-action { background: #5c9a54; }
+.water-action { background: #4e93a8; }
+.shade-action { background: #527a45; }
+.fire-action { background: #c87543; }
+.flower-action { background: #b56d8c; }
+
+.build-action:disabled {
+  background: #b8c0b7;
+  cursor: not-allowed;
+}
+
+.flower-status {
+  background: #f9edf3;
+  color: #8f4f6d;
+}
