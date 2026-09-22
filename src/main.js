@@ -330,16 +330,18 @@ function gatherFromNature(options) {
   if (normalAmount > 0) addEnergy("normal", normalAmount);
 
   let bugAmount = 0;
-  if (hasPokemon("weedle")) bugAmount += 0.1;
-  if (hasPokemon("caterpie") && Math.random() < 0.1) bugAmount += 0.1;
-  bugAmount = roundEnergy(bugAmount);
-  if (bugAmount > 0) addEnergy("bug", bugAmount);
+  if (hasPokemon("caterpie") && Math.random() < 0.1) {
+    bugAmount = 0.1 + (hasPokemon("weedle") ? 0.1 : 0);
+    bugAmount = roundEnergy(bugAmount);
+    addEnergy("bug", bugAmount);
+  }
 
   let flyingAmount = 0;
-  if (hasPokemon("pidgey")) flyingAmount += 0.1;
-  if (hasPokemon("spearow") && Math.random() < 0.1) flyingAmount += 0.1;
-  flyingAmount = roundEnergy(flyingAmount);
-  if (flyingAmount > 0) addEnergy("flying", flyingAmount);
+  if (hasPokemon("spearow") && Math.random() < 0.1) {
+    flyingAmount = 0.1 + (hasPokemon("pidgey") ? 0.1 : 0);
+    flyingAmount = roundEnergy(flyingAmount);
+    addEnergy("flying", flyingAmount);
+  }
 
   state.totalClicks += 1;
 
