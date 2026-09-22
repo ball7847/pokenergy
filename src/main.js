@@ -252,6 +252,28 @@ function getPassiveProduction(type) {
   return roundEnergy(amount);
 }
 
+function getFixedAutoExplorationProduction(type) {
+  const autoExplorations = getAutoExplorationsPerSecond();
+  if (autoExplorations <= 0) return 0;
+
+  if (type === "normal") {
+    return roundEnergy(getNormalGainPerClick() * autoExplorations);
+  }
+
+  if (hasPokemon("eevee") && randomNatureTypes.includes(type)) {
+    return roundEnergy(getNatureGain(type) * autoExplorations);
+  }
+
+  return 0;
+}
+
+function getDisplayedProductionPerSecond(type) {
+  return roundEnergy(
+    getPassiveProduction(type) +
+    getFixedAutoExplorationProduction(type)
+  );
+}
+
 function addEnergy(type, amount) {
   state.energies[type] = roundEnergy(state.energies[type] + amount);
   if (amount > 0 && !state.seenEnergies.includes(type)) {
@@ -437,7 +459,7 @@ function renderEnergyBar() {
     const type = entry[0];
     const info = entry[1];
     if (!state.seenEnergies.includes(type)) return;
-    const production = getPassiveProduction(type);
+    const production = getDisplayedProductionPerSecond(type);
     const productionText = production > 0
       ? '<span class="energy-production">(+' + formatNumber(production) + '/s)</span>'
       : "";
