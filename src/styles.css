@@ -325,3 +325,24 @@ h1 {
   .nature-scene { min-height: 360px; border-radius: 20px; }
   .pokemon-meadow { top: 16px; bottom: auto; max-width: calc(100% - 32px); }
 }
+
+.energy-normal { background: #f3f3f3; }
+.type-normal .pokemon-dot { background: #a7a7a7; }
+.auto-rate {
+  margin-left: 6px;
+  color: #4f8a5f;
+  font-weight: 900;
+}
+.auto-label {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e5efe7;
+  color: #4d7758;
+  font-size: .72rem;
+  vertical-align: 1px;
+}
+@media (max-width: 560px) {
+  .energy-list { grid-template-columns: repeat(2, 1fr); }
+}
