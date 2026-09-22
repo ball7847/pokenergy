@@ -542,3 +542,6 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+.energy-bug { background: #f1f7df; }
+.type-bug .pokemon-dot { background: #91ad3d; }
