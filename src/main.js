@@ -17,9 +17,9 @@ const pokemonData = [
   { id: "bulbasaur", name: "이상해씨", type: "grass", unlockAt: 1, ability: "심록 I", effect: "자연에서 풀 에너지 획득량 +0.1 · 클릭마다 노말 에너지 +0.1" },
   { id: "charmander", name: "파이리", type: "fire", unlockAt: 4, ability: "맹화 I", effect: "자연에서 불꽃 에너지 획득량 +0.1 · 클릭마다 노말 에너지 +0.1" },
   { id: "squirtle", name: "꼬부기", type: "water", unlockAt: 7, ability: "급류 I", effect: "자연에서 물 에너지 획득량 +0.1 · 클릭마다 노말 에너지 +0.1" },
-  { id: "rattata", name: "꼬렛", type: "normal", unlockAt: 19, ability: "몸통박치기", effect: "3초마다 자동으로 자연 탐색" },
+  { id: "rattata", name: "꼬렛", type: "normal", unlockAt: 19, ability: "몸통박치기", effect: "초당 1회 자동으로 자연 탐색" },
   { id: "caterpie", name: "캐터피", type: "bug", unlockType: "grass", unlockAt: 10, ability: "인분", effect: "자연에서 10% 확률로 벌레 에너지 +0.1" },
-  { id: "mankey", name: "망키", type: "fighting", unlockMode: "explorations", unlockAt: 560, ability: "할퀴기", effect: "3초마다 자동으로 자연 탐색" },
+  { id: "mankey", name: "망키", type: "fighting", unlockMode: "explorations", unlockAt: 560, ability: "할퀴기", effect: "초당 1회 자동으로 자연 탐색" },
   { id: "pidgey", name: "구구", type: "flying", unlockType: "bug", unlockAt: 10, ability: "쪼기", effect: "자연에서 10% 확률로 비행 에너지 +0.1" }
 ];
 
@@ -230,7 +230,7 @@ function getAutoExplorerCount() {
 }
 
 function getAutoExplorationsPerSecond() {
-  return getAutoExplorerCount() / 3;
+  return getAutoExplorerCount();
 }
 
 function getPassiveProduction(type) {
@@ -688,7 +688,7 @@ setInterval(function () {
   for (let i = 0; i < count; i += 1) {
     gatherFromNature({ auto: true });
   }
-}, 3000);
+}, 1000);
 
 setInterval(function () {
   let changed = false;
