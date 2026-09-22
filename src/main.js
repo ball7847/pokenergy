@@ -20,7 +20,10 @@ const pokemonData = [
   { id: "rattata", name: "꼬렛", type: "normal", unlockAt: 19, ability: "몸통박치기", effect: "초당 1회 자동으로 자연 탐색" },
   { id: "caterpie", name: "캐터피", type: "bug", unlockType: "grass", unlockAt: 10, ability: "인분", effect: "자연에서 10% 확률로 벌레 에너지 +0.1" },
   { id: "mankey", name: "망키", type: "fighting", unlockMode: "explorations", unlockAt: 560, ability: "할퀴기", effect: "초당 1회 자동으로 자연 탐색" },
-  { id: "pidgey", name: "구구", type: "flying", unlockType: "bug", unlockAt: 10, ability: "쪼기", effect: "자연에서 10% 확률로 비행 에너지 +0.1" }
+  { id: "pidgey", name: "구구", type: "flying", unlockType: "bug", unlockAt: 10, ability: "바람일으키기", effect: "자연에서 비행 에너지 획득량 +0.1" },
+  { id: "spearow", name: "깨비참", type: "flying", unlockType: "normal", unlockAt: 210, ability: "쪼기", effect: "자연에서 10% 확률로 비행 에너지 +0.1" },
+  { id: "weedle", name: "뿔충이", type: "bug", unlockType: "bug", unlockAt: 13, ability: "벌레의 알림", effect: "자연에서 벌레 에너지 획득량 +0.1" },
+  { id: "eevee", name: "이브이", type: "normal", unlockMode: "allEnergies", unlockTypes: ["grass", "water", "fire"], unlockAt: 133, ability: "적응력", effect: "자연에서 풀, 물, 불꽃 에너지를 획득합니다." }
 ];
 
 const starterIds = ["bulbasaur", "charmander", "squirtle"];
@@ -29,23 +32,23 @@ const buildingData = {
   greenMeadow: {
     id: "greenMeadow",
     name: "초록 풀숲",
-    description: "매초 풀 에너지 +0.1",
+    description: "매초 풀 에너지 +0.2",
     cost: { grass: 25, water: 15 },
-    production: { grass: 0.1 }
+    production: { grass: 0.2 }
   },
   campfire: {
     id: "campfire",
     name: "모닥불",
-    description: "매초 불꽃 에너지 +0.1",
+    description: "매초 불꽃 에너지 +0.2",
     cost: { grass: 25, fire: 25 },
-    production: { fire: 0.1 }
+    production: { fire: 0.2 }
   },
   moistMeadow: {
     id: "moistMeadow",
     name: "촉촉한 풀숲",
-    description: "매초 풀 에너지 +0.1 및 물 에너지 +0.1",
+    description: "매초 풀 에너지 +0.2 및 물 에너지 +0.2",
     cost: { grass: 25, water: 25 },
-    production: { grass: 0.1, water: 0.1 }
+    production: { grass: 0.2, water: 0.2 }
   }
 };
 
@@ -278,9 +281,17 @@ function discoverPokemon() {
 
   pokemonData.forEach(function (pokemon) {
     const unlockType = pokemon.unlockType || pokemon.type;
-    const conditionMet = pokemon.unlockMode === "explorations"
-      ? state.totalClicks >= pokemon.unlockAt
-      : state.energies[unlockType] >= pokemon.unlockAt;
+    let conditionMet = false;
+
+    if (pokemon.unlockMode === "explorations") {
+      conditionMet = state.totalClicks >= pokemon.unlockAt;
+    } else if (pokemon.unlockMode === "allEnergies") {
+      conditionMet = pokemon.unlockTypes.every(function (type) {
+        return state.energies[type] >= pokemon.unlockAt;
+      });
+    } else {
+      conditionMet = state.energies[unlockType] >= pokemon.unlockAt;
+    }
     if (!hasPokemon(pokemon.id) && conditionMet) {
       state.discovered.push(pokemon.id);
       found.push(pokemon);
@@ -294,31 +305,49 @@ function discoverPokemon() {
 
 function gatherFromNature(options) {
   const isAuto = options && options.auto;
-  const type = randomNatureTypes[Math.floor(Math.random() * randomNatureTypes.length)];
-  const amount = getNatureGain(type);
   const normalAmount = getNormalGainPerClick();
+  const elementalGains = {};
+  let primaryType = null;
+  let primaryAmount = 0;
 
-  addEnergy(type, amount);
+  if (hasPokemon("eevee")) {
+    randomNatureTypes.forEach(function (type) {
+      const amount = getNatureGain(type);
+      elementalGains[type] = amount;
+      addEnergy(type, amount);
+    });
+    primaryType = "grass";
+    primaryAmount = elementalGains.grass;
+  } else {
+    const type = randomNatureTypes[Math.floor(Math.random() * randomNatureTypes.length)];
+    const amount = getNatureGain(type);
+    elementalGains[type] = amount;
+    addEnergy(type, amount);
+    primaryType = type;
+    primaryAmount = amount;
+  }
+
   if (normalAmount > 0) addEnergy("normal", normalAmount);
 
   let bugAmount = 0;
-  if (hasPokemon("caterpie") && Math.random() < 0.1) {
-    bugAmount = 0.1;
-    addEnergy("bug", bugAmount);
-  }
+  if (hasPokemon("weedle")) bugAmount += 0.1;
+  if (hasPokemon("caterpie") && Math.random() < 0.1) bugAmount += 0.1;
+  bugAmount = roundEnergy(bugAmount);
+  if (bugAmount > 0) addEnergy("bug", bugAmount);
 
   let flyingAmount = 0;
-  if (hasPokemon("pidgey") && Math.random() < 0.1) {
-    flyingAmount = 0.1;
-    addEnergy("flying", flyingAmount);
-  }
+  if (hasPokemon("pidgey")) flyingAmount += 0.1;
+  if (hasPokemon("spearow") && Math.random() < 0.1) flyingAmount += 0.1;
+  flyingAmount = roundEnergy(flyingAmount);
+  if (flyingAmount > 0) addEnergy("flying", flyingAmount);
 
   state.totalClicks += 1;
 
   const discoveredNow = discoverPokemon();
   state.lastGain = {
-    type: type,
-    amount: amount,
+    type: primaryType,
+    amount: primaryAmount,
+    elementalGains: elementalGains,
     normalAmount: normalAmount,
     bugAmount: bugAmount,
     flyingAmount: flyingAmount,
@@ -329,7 +358,6 @@ function gatherFromNature(options) {
   saveState();
   render();
 }
-
 function canAfford(cost) {
   return Object.entries(cost).every(function (entry) {
     return state.energies[entry[0]] >= entry[1];
@@ -482,11 +510,13 @@ function renderNature() {
       : "";
     const autoText = state.lastGain.auto ? '<span class="auto-label">자동</span>' : "";
 
+    const elementalEntries = Object.entries(state.lastGain.elementalGains || { [state.lastGain.type]: state.lastGain.amount });
+    const elementalText = elementalEntries.map(function (entry) {
+      return energyTypes[entry[0]].icon + ' ' + energyTypes[entry[0]].name + ' +' + formatNumber(entry[1]);
+    }).join(' · ');
+
     gainHtml = '<div class="gain-message ' + state.lastGain.type + '">' +
-      autoText +
-      energyTypes[state.lastGain.type].icon + ' ' +
-      energyTypes[state.lastGain.type].name + ' +' + formatNumber(state.lastGain.amount) +
-      normalText + bugText + flyingText + discovery + '</div>';
+      autoText + elementalText + normalText + bugText + flyingText + discovery + '</div>';
   }
 
   let unlockHtml = "";
@@ -495,17 +525,27 @@ function renderNature() {
   }).forEach(function (pokemon) {
     const unlocked = false;
     const unlockType = pokemon.unlockType || pokemon.type;
-    const current = pokemon.unlockMode === "explorations" ? state.totalClicks : state.energies[unlockType];
+    const current = pokemon.unlockMode === "explorations"
+      ? state.totalClicks
+      : pokemon.unlockMode === "allEnergies"
+        ? Math.min.apply(null, pokemon.unlockTypes.map(function (type) { return state.energies[type]; }))
+        : state.energies[unlockType];
     const progress = Math.min(100, (current / pokemon.unlockAt) * 100);
 
     unlockHtml += '<article class="unlock-card">' +
       '<div class="unlock-card-top"><span>' + energyTypes[pokemon.type].icon + ' ' + pokemon.name + '</span>' +
-      '<span>' + (pokemon.unlockMode === "explorations" ? current + ' / ' + pokemon.unlockAt : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
+      '<span>' + (pokemon.unlockMode === "explorations"
+        ? current + ' / ' + pokemon.unlockAt
+        : pokemon.unlockMode === "allEnergies"
+          ? '각 ' + pokemon.unlockAt
+          : formatNumber(current) + ' / ' + pokemon.unlockAt) + '</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
       '<p><strong>[' + pokemon.ability + ']</strong> ' +
       (pokemon.unlockMode === "explorations"
         ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
-        : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+        : pokemon.unlockMode === "allEnergies"
+          ? '풀, 물, 불꽃 에너지가 각각 ' + pokemon.unlockAt + ' 이상일 때 출현'
+          : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></article>';
   });
 
@@ -548,7 +588,9 @@ function renderDex() {
         ? pokemon.effect
         : pokemon.unlockMode === "explorations"
           ? '총 자연 탐색 ' + pokemon.unlockAt + '회에 출현'
-          : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
+          : pokemon.unlockMode === "allEnergies"
+            ? '풀, 물, 불꽃 에너지가 각각 ' + pokemon.unlockAt + ' 이상일 때 출현'
+            : energyTypes[pokemon.unlockType || pokemon.type].name + ' 에너지 ' + pokemon.unlockAt + '에 출현') +
       '</p></div></article>';
   });
 
@@ -580,7 +622,7 @@ function renderVillage() {
         '<div class="building-body">' +
           '<div class="building-title-row"><h2>촉촉한 풀숲</h2><span>업그레이드 완료</span></div>' +
           '<p>' + moist.description + '</p>' +
-          '<div class="built-status">매초 🌿 풀 +0.1 · 💧 물 +0.1 생산 중</div>' +
+          '<div class="built-status">매초 🌿 풀 +0.2 · 💧 물 +0.2 생산 중</div>' +
         '</div>' +
       '</article>';
   } else if (greenBuilt) {
@@ -590,7 +632,7 @@ function renderVillage() {
         '<div class="building-body">' +
           '<div class="building-title-row"><h2>초록 풀숲</h2><span>건설 완료</span></div>' +
           '<p>' + green.description + '</p>' +
-          '<div class="built-status">매초 🌿 풀 에너지 +0.1 생산 중</div>' +
+          '<div class="built-status">매초 🌿 풀 에너지 +0.2 생산 중</div>' +
           (state.unlocks.moistMeadow
             ? '<div class="upgrade-box"><strong>촉촉한 풀숲으로 업그레이드</strong>' +
               '<p>' + moist.description + '</p>' +
@@ -624,7 +666,7 @@ function renderVillage() {
         '<p>' + campfire.description + '</p>' +
         '<div class="building-cost"><span>🌿 풀 25</span><span>🔥 불꽃 25</span></div>' +
         (campfireBuilt
-          ? '<div class="built-status fire-status">매초 🔥 불꽃 에너지 +0.1 생산 중</div>'
+          ? '<div class="built-status fire-status">매초 🔥 불꽃 에너지 +0.2 생산 중</div>'
           : '<button id="build-campfire" ' + (campfireAffordable ? '' : 'disabled') + '>' +
               (campfireAffordable ? '모닥불 건설' : '에너지가 부족합니다') +
             '</button>') +
