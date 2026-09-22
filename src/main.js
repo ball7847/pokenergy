@@ -110,12 +110,9 @@ function getNormalGainPerClick() {
   return roundEnergy(amount);
 }
 
-function getAutoEnergyPerSecond() {
+function getAutoExplorationsPerSecond() {
   if (!hasPokemon("rattata")) return 0;
-  const averageRandomGain = randomNatureTypes.reduce(function (sum, type) {
-    return sum + getNatureGain(type);
-  }, 0) / randomNatureTypes.length;
-  return (averageRandomGain + getNormalGainPerClick()) / 5;
+  return 1 / 5;
 }
 
 function addEnergy(type, amount) {
@@ -244,7 +241,7 @@ function renderNature() {
       '</p></article>';
   });
 
-  const autoPerSecond = getAutoEnergyPerSecond();
+  const autoPerSecond = getAutoExplorationsPerSecond();
   const autoRateText = autoPerSecond > 0
     ? '<span class="auto-rate">(+' + formatNumber(autoPerSecond) + '/s)</span>'
     : "";
