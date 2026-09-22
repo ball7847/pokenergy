@@ -460,7 +460,9 @@ function gatherFromNature(options) {
 
   state.totalClicks += 1;
 
+  const logSignatureBeforeDiscovery = getLatestLogSignature();
   const discoveredNow = discoverPokemon();
+  const structuralChange = discoveredNow.length > 0 || getLatestLogSignature() !== logSignatureBeforeDiscovery;
   state.lastGain = {
     type: primaryType,
     amount: primaryAmount,
@@ -473,7 +475,11 @@ function gatherFromNature(options) {
   };
 
   saveState();
-  render();
+  if (isAuto && !structuralChange) {
+    updateLiveUI();
+  } else {
+    render();
+  }
 }
 function canAfford(cost) {
   return Object.entries(cost).every(function (entry) {
@@ -914,6 +920,46 @@ function renderContent() {
   return renderNature();
 }
 
+function updateLiveUI() {
+  const energyBar = document.querySelector(".energy-bar");
+  if (energyBar) {
+    const temp = document.createElement("div");
+    temp.innerHTML = renderEnergyBar();
+    const freshEnergyBar = temp.firstElementChild;
+    if (freshEnergyBar) energyBar.innerHTML = freshEnergyBar.innerHTML;
+  }
+
+  if (state.activeTab === "nature") {
+    const temp = document.createElement("div");
+    temp.innerHTML = renderNature();
+
+    const freshCounter = temp.querySelector(".click-counter");
+    const liveCounter = document.querySelector(".click-counter");
+    if (freshCounter && liveCounter) liveCounter.innerHTML = freshCounter.innerHTML;
+
+    const freshGain = temp.querySelector(".gain-message");
+    const liveGain = document.querySelector(".gain-message");
+    if (freshGain && liveGain) liveGain.outerHTML = freshGain.outerHTML;
+
+    const freshUnlocks = temp.querySelector(".unlock-grid");
+    const liveUnlocks = document.querySelector(".unlock-grid");
+    if (freshUnlocks && liveUnlocks) liveUnlocks.innerHTML = freshUnlocks.innerHTML;
+  } else if (state.activeTab === "village") {
+    const temp = document.createElement("div");
+    temp.innerHTML = renderVillage();
+    const freshGrid = temp.querySelector(".building-grid");
+    const liveGrid = document.querySelector(".building-grid");
+    if (freshGrid && liveGrid) {
+      liveGrid.innerHTML = freshGrid.innerHTML;
+      bindBuildingButtons();
+    }
+  }
+}
+
+function bindBuildingButtons() {
+  bindBuildingButtons();
+}
+
 function render() {
   const app = document.querySelector("#app");
   const oldRecordList = document.querySelector(".record-list");
@@ -1004,9 +1050,16 @@ setInterval(function () {
   });
 
   if (changed) {
-    discoverPokemon();
+    const logSignatureBeforeDiscovery = getLatestLogSignature();
+    const discoveredNow = discoverPokemon();
+    const structuralChange = discoveredNow.length > 0 || getLatestLogSignature() !== logSignatureBeforeDiscovery;
     saveState();
-    render();
+
+    if (structuralChange) {
+      render();
+    } else {
+      updateLiveUI();
+    }
   }
 }, 1000);
 
